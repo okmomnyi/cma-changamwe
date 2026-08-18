@@ -1,0 +1,56 @@
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .panels { grid-template-columns: minmax(0, 1fr); }
+}
+
+.gateRow { display: flex; gap: var(--space-3); align-items: flex-start; }
+.gateOk { color: var(--present-fg); flex-shrink: 0; }
+.gateWarn { color: var(--apology-fg); flex-shrink: 0; }
+.gateTitle { font-weight: 500; }
+
+.gateList {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  display: flex; flex-direction: column; gap: var(--space-1);
+}
+
+.notComputed {
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.linkList { list-style: none; margin: 0; padding: var(--space-2); display: flex; flex-direction: column; }
+
+.linkRow {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--text);
+}
+.linkRow:hover { background: var(--ink-050); color: var(--navy-700); }
+.linkRow svg { color: var(--text-subtle); }
+
+.scoreLine { display: flex; align-items: baseline; gap: var(--space-2); }
+
+.scoreValue {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--navy-800);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}

@@ -1,0 +1,166 @@
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.groupIcon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  background: var(--navy-050);
+  color: var(--navy-700);
+  flex-shrink: 0;
+}
+
+.groupTitle { font-size: var(--text-md); color: var(--navy-800); }
+
+.groupScore {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--navy-800);
+  font-variant-numeric: tabular-nums;
+}
+
+.itemGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-4);
+}
+
+.item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  border-left: 3px solid var(--border-strong);
+}
+
+.full    { border-left-color: var(--present-fg); }
+.strong  { border-left-color: var(--present-fg); }
+.partial { border-left-color: var(--apology-fg); }
+.weak    { border-left-color: var(--absent-fg); }
+.na      { border-left-color: var(--ink-300); background: var(--surface-sunken); }
+
+.itemHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.itemTitle { font-size: var(--text-base); font-weight: 600; color: var(--ink-900); }
+.itemWindow { font-size: var(--text-xs); color: var(--text-subtle); margin-top: 0.125rem; }
+
+.itemPoints {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--navy-800);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.itemPointsMax { font-size: var(--text-sm); font-weight: 400; color: var(--text-subtle); margin-left: 0.2em; }
+
+.meterRow { display: flex; align-items: center; gap: var(--space-3); }
+
+.meter {
+  position: relative;
+  flex: 1 1 auto;
+  height: 0.5rem;
+  background: var(--ink-100);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.meterFill { display: block; height: 100%; border-radius: 999px; background: var(--navy-500); }
+.full .meterFill, .strong .meterFill { background: var(--present-fg); }
+.partial .meterFill { background: var(--apology-fg); }
+.weak .meterFill { background: var(--absent-fg); }
+
+.guideMark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--ink-500);
+  opacity: 0.55;
+}
+
+.meterValue {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-800);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.itemFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--ink-100);
+}
+
+.itemFacts dt {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.itemFacts dd {
+  margin: 0.15rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-800);
+  font-variant-numeric: tabular-nums;
+}
+
+.stateWord { font-weight: 500; }
+.full .stateWord, .strong .stateWord { color: var(--present-fg); }
+.partial .stateWord { color: var(--apology-fg); }
+.weak .stateWord { color: var(--absent-fg); }
+
+.naNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.naNote svg { flex-shrink: 0; margin-top: 0.15em; }
+
+.hardGate {
+  font-size: var(--text-sm);
+  color: var(--absent-fg);
+  background: var(--absent-bg);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+}
+
+.footNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.footNote svg { flex-shrink: 0; margin-top: 0.15em; }
+
+@media (max-width: 30rem) {
+  .itemFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

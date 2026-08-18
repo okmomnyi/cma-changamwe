@@ -1,0 +1,57 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+
+  background:
+    radial-gradient(60rem 40rem at 50% -10%, var(--navy-050), transparent 70%),
+    var(--bg);
+}
+
+.panel {
+  width: 100%;
+  max-width: 24rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: var(--space-6);
+}
+
+.brand { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-6); }
+
+.mark {
+  width: 2.25rem; height: 2.25rem; border-radius: var(--radius);
+  background: var(--navy-700);
+  position: relative; flex-shrink: 0;
+}
+
+.mark::before,
+.mark::after {
+  content: ''; position: absolute; background: var(--brass-100); border-radius: 1px;
+}
+.mark::before { width: 2px; height: 1.25rem; left: calc(50% - 1px); top: 0.5rem; }
+.mark::after { width: 0.875rem; height: 2px; left: calc(50% - 0.4375rem); top: 0.95rem; }
+
+.brandName { font-weight: 600; color: var(--navy-800); }
+.heading { margin-bottom: var(--space-2); }
+.form { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-5); }
+.form .btn { width: 100%; height: 2.5rem; }
+
+.error {
+  background: var(--absent-bg);
+  color: var(--absent-fg);
+  border: 1px solid rgb(152 38 42 / 0.2);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.footNote {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-subtle);
+  font-size: var(--text-sm);
+}

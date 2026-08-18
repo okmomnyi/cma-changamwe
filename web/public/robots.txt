@@ -1,0 +1,4 @@
+# This is an internal member system holding personal data. It must not be
+# indexed by search engines under any circumstances.
+User-agent: *
+Disallow: /
