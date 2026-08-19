@@ -94,11 +94,31 @@ export interface SessionUser {
     admin_offices: string[];
     is_admin: boolean;
 }
-export async function signIn(identifier: string, password: string): Promise<SessionUser> {
+export type SignInResult =
+    | { status: 'ok'; user: SessionUser }
+    | { status: 'otp_required'; challengeToken: string; emailHint: string };
+
+export async function signIn(identifier: string, password: string): Promise<SignInResult> {
     const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
+    });
+    if (!res.ok)
+        throw await parseError(res);
+    const body = await res.json();
+    if (body.status === 'otp_required') {
+        return { status: 'otp_required', challengeToken: body.challenge_token, emailHint: body.email_hint };
+    }
+    accessToken = body.access_token;
+    return { status: 'ok', user: body.user as SessionUser };
+}
+
+export async function verifyLoginOtp(challengeToken: string, code: string): Promise<SessionUser> {
+    const res = await fetch('/api/auth/login/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ challenge_token: challengeToken, code }),
     });
     if (!res.ok)
         throw await parseError(res);

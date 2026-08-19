@@ -7,6 +7,7 @@ import { evaluateMatrixForMember } from '../matrix/engine.js';
 import { verifyPassword } from '../auth/password.js';
 import { issueEmailChangeOtp, verifyOtp, OTP_TTL_MINUTES } from '../auth/otp.js';
 import { sendEmail } from '../email/mailer.js';
+import { otpEmail, noticeEmail } from '../email/templates.js';
 import { writeAudit } from '../audit/audit.js';
 import { otpSendLimiter, otpVerifyLimiter } from '../middleware/rateLimit.js';
 export const meRouter = Router();

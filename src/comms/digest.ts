@@ -3,6 +3,7 @@ import { loadMatrixConfig } from '../matrix/config.js';
 import { logger } from '../util/logger.js';
 import { periodLabel } from './report.js';
 import { sendEmail as defaultSend, type EmailMessage, type SendResult } from '../email/mailer.js';
+import { preformattedEmail } from '../email/templates.js';
 export interface DigestResult {
     period: string;
     recipients: string[];
@@ -88,8 +89,12 @@ export async function sendLeadershipDigest(options: {
         const result = await send({
             to: recipient.email,
             toName: recipient.name,
-            subject: `${config.org_name} - follow-up list for ${label}`,
-            text,
+            ...preformattedEmail({
+                subject: `${config.org_name} - follow-up list for ${label}`,
+                heading: `Follow-up list for ${label}`,
+                intro: 'Members currently below the welfare-standing threshold, for pastoral follow-up.',
+                body: text,
+            }),
         });
         if (result.delivered)
             delivered += 1;

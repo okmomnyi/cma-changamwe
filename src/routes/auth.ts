@@ -3,12 +3,16 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { queryOne, withTransaction } from '../db/pool.js';
 import { verifyPassword, hashPassword } from '../auth/password.js';
-import { hashToken, issueRefreshToken, revokeFamily, signAccessToken, } from '../auth/tokens.js';
+import { hashToken, issueRefreshToken, revokeFamily, signAccessToken, signLoginChallenge, verifyLoginChallenge, } from '../auth/tokens.js';
 import { loadPrincipal } from '../auth/authz.js';
 import { requireAuth, principalOf } from '../middleware/auth.js';
 import { loginLimiter } from '../middleware/rateLimit.js';
-import { unauthorized } from '../util/errors.js';
+import { otpVerifyLimiter } from '../middleware/rateLimit.js';
+import { badRequest, tooManyRequests, unauthorized } from '../util/errors.js';
 import { logger } from '../util/logger.js';
+import { issueLoginOtp, verifyOtp, OTP_TTL_MINUTES } from '../auth/otp.js';
+import { sendEmail } from '../email/mailer.js';
+import { otpEmail } from '../email/templates.js';
 export const authRouter = Router();
 const REFRESH_COOKIE = 'cma_refresh';
 const REFRESH_COOKIE_PATH = '/api/auth';
@@ -31,6 +35,24 @@ async function getDecoyHash(): Promise<string> {
     decoyHash ??= await hashPassword('login-timing-decoy-not-a-real-password');
     return decoyHash;
 }
+async function issueSession(req: import('express').Request, res: import('express').Response, userId: string, memberId: string): Promise<void> {
+    const { accessToken, refreshToken } = await withTransaction(async (client) => {
+        const refresh = await issueRefreshToken(client, userId, {
+            userAgent: req.get('user-agent') ?? null,
+        });
+        const access = await signAccessToken({ sub: userId, mid: memberId });
+        return { accessToken: access, refreshToken: refresh.token };
+    });
+    const principal = await loadPrincipal(userId);
+    res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
+    res.json({
+        access_token: accessToken,
+        token_type: 'Bearer',
+        expires_in: env.ACCESS_TOKEN_TTL,
+        user: principal && publicPrincipal(principal),
+    });
+}
+
 authRouter.post('/login', loginLimiter, async (req, res, next) => {
     try {
         const { identifier, password } = loginSchema.parse(req.body);
@@ -38,35 +60,99 @@ authRouter.post('/login', loginLimiter, async (req, res, next) => {
             id: string;
             member_id: string;
             password_hash: string;
-            email_verified: boolean;
-        }>(`SELECT u.id, u.member_id, u.password_hash, u.email_verified
+            email: string;
+            full_name: string;
+            is_demo: boolean;
+        }>(`SELECT u.id, u.member_id, u.password_hash, u.email, m.full_name,
+                   (m.id_or_passport_no LIKE 'DEMO-%') AS is_demo
        FROM users u
+       JOIN members m ON m.id = u.member_id
        WHERE lower(u.username) = lower($1) OR lower(u.email) = lower($1)`, [identifier]);
         const ok = user
             ? await verifyPassword(user.password_hash, password)
             : (await verifyPassword(await getDecoyHash(), password), false);
         if (!ok || !user)
             throw unauthorized('Incorrect username or password');
-        const { accessToken, refreshToken } = await withTransaction(async (client) => {
-            const refresh = await issueRefreshToken(client, user.id, {
-                userAgent: req.get('user-agent') ?? null,
-            });
-            const access = await signAccessToken({ sub: user.id, mid: user.member_id });
-            return { accessToken: access, refreshToken: refresh.token };
+
+        // Demo accounts skip the email step so reviewers can sign in directly.
+        if (user.is_demo) {
+            await issueSession(req, res, user.id, user.member_id);
+            return;
+        }
+
+        // Everyone else gets a one-time code by email before a session is issued.
+        const code = await withTransaction((client) => issueLoginOtp(client, user.id));
+        await sendEmail({
+            to: user.email,
+            toName: user.full_name,
+            ...otpEmail({
+                subject: 'CMA Changamwe - your sign-in code',
+                heading: 'Your sign-in code',
+                intro: 'Use this code to finish signing in to CMA Changamwe.',
+                code,
+                ttlMinutes: OTP_TTL_MINUTES,
+                footer: 'If you did not just try to sign in, someone may have your password. Change it and tell the Coordinator.',
+            }),
         });
-        const principal = await loadPrincipal(user.id);
-        res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
+        const challenge = await signLoginChallenge(user.id);
         res.json({
-            access_token: accessToken,
-            token_type: 'Bearer',
-            expires_in: env.ACCESS_TOKEN_TTL,
-            user: principal && publicPrincipal(principal),
+            status: 'otp_required',
+            challenge_token: challenge,
+            email_hint: maskEmail(user.email),
+            expires_in_minutes: OTP_TTL_MINUTES,
         });
     }
     catch (err) {
         next(err);
     }
 });
+function maskEmail(email: string): string {
+    const [name, domain] = email.split('@');
+    if (!domain || !name)
+        return 'your email';
+    const shown = name.length <= 2 ? name.slice(0, 1) : name.slice(0, 2);
+    return `${shown}${'*'.repeat(Math.max(1, name.length - shown.length))}@${domain}`;
+}
+
+const verifyLoginSchema = z.object({
+    challenge_token: z.string().min(10),
+    code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code'),
+});
+
+authRouter.post('/login/verify', otpVerifyLimiter, async (req, res, next) => {
+    try {
+        const { challenge_token, code } = verifyLoginSchema.parse(req.body);
+        let userId: string;
+        try {
+            userId = await verifyLoginChallenge(challenge_token);
+        }
+        catch {
+            throw unauthorized('That sign-in attempt has expired. Please sign in again.');
+        }
+        const user = await queryOne<{ id: string; member_id: string }>(
+            `SELECT id, member_id FROM users WHERE id = $1`, [userId]);
+        if (!user)
+            throw unauthorized('That sign-in attempt is no longer valid.');
+
+        const outcome = await withTransaction((client) => verifyOtp(client, { userId }, 'login', code));
+        if (!outcome.ok) {
+            if (outcome.failure === 'locked_out')
+                throw tooManyRequests('Too many incorrect codes. Please sign in again.');
+            if (outcome.failure === 'expired' || outcome.failure === 'not_found')
+                throw badRequest('That code has expired. Please sign in again.');
+            if (outcome.failure === 'consumed')
+                throw badRequest('That code has already been used.');
+            throw badRequest(outcome.attemptsRemaining
+                ? `Incorrect code. ${outcome.attemptsRemaining} attempts remaining.`
+                : 'Incorrect code.');
+        }
+        await issueSession(req, res, user.id, user.member_id);
+    }
+    catch (err) {
+        next(err);
+    }
+});
+
 authRouter.post('/refresh', async (req, res, next) => {
     try {
         const presented = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE];

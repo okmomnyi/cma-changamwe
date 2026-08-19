@@ -2,7 +2,8 @@ import { pool, query, queryOne } from '../db/pool.js';
 import { env } from '../config/env.js';
 import { logger } from '../util/logger.js';
 import { loadMatrixConfig } from '../matrix/config.js';
-import { renderReportText, reportSubject, type SnapshotForReport } from './report.js';
+import { renderReportText, reportSubject, periodLabel, type SnapshotForReport } from './report.js';
+import { preformattedEmail } from '../email/templates.js';
 import { sendEmail as defaultSend, type EmailMessage, type SendResult } from '../email/mailer.js';
 export interface BatchResult {
     period: string;
@@ -73,8 +74,12 @@ export async function sendPendingReports(options: {
             const result = await send({
                 to: row.email,
                 toName: row.full_name,
-                subject: reportSubject(snapshot),
-                text: renderReportText(snapshot),
+                ...preformattedEmail({
+                    subject: reportSubject(snapshot),
+                    heading: `Your Matrix report for ${periodLabel(snapshot.period)}`,
+                    intro: 'Here is your participation summary for the period.',
+                    body: renderReportText(snapshot),
+                }),
             });
             if (result.delivered) {
                 sent += 1;

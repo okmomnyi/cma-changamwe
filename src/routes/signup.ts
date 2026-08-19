@@ -6,6 +6,7 @@ import { hashToken } from '../auth/tokens.js';
 import { hashPassword } from '../auth/password.js';
 import { issueSignupOtp, verifyOtp, OTP_TTL_MINUTES } from '../auth/otp.js';
 import { sendEmail } from '../email/mailer.js';
+import { otpEmail, noticeEmail } from '../email/templates.js';
 import { writeAudit } from '../audit/audit.js';
 import { otpSendLimiter, otpVerifyLimiter, loginLimiter } from '../middleware/rateLimit.js';
 import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../util/errors.js';
@@ -45,8 +46,14 @@ signupRouter.post('/start', otpSendLimiter, async (req, res, next) => {
         if (existingUser) {
             await sendEmail({
                 to: email,
-                subject: 'CMA Changamwe - account already registered',
-                text: 'Someone started registration with this address, but it already has an account. If that was you, sign in instead, or use "forgot password".',
+                ...noticeEmail({
+                    subject: 'CMA Changamwe - account already registered',
+                    heading: 'This email already has an account',
+                    paragraphs: [
+                        'Someone started a registration with this address, but it already belongs to a CMA Changamwe account.',
+                        'If that was you, please sign in instead. If you have forgotten your password, use the "forgot password" option on the sign-in page.',
+                    ],
+                }),
             });
             res.status(202).json({ status: 'otp_sent', message: 'Check your email for a 6-digit code.' });
             return;

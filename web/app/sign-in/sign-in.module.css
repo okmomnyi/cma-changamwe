@@ -55,3 +55,10 @@
   color: var(--text-subtle);
   font-size: var(--text-sm);
 }
+
+.codeInput {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  letter-spacing: 0.4em;
+  text-align: center;
+}

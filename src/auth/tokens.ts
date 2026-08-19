@@ -31,6 +31,31 @@ export async function verifyAccessToken(token: string): Promise<AccessClaims> {
     }
     return { sub: payload.sub, mid: payload.mid };
 }
+const LOGIN_CHALLENGE_AUDIENCE = 'cma-login-challenge';
+
+export async function signLoginChallenge(userId: string): Promise<string> {
+    return new SignJWT({ typ: 'login_challenge' })
+        .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+        .setSubject(userId)
+        .setIssuer(ISSUER)
+        .setAudience(LOGIN_CHALLENGE_AUDIENCE)
+        .setIssuedAt()
+        .setExpirationTime('10m')
+        .sign(secretKey);
+}
+
+export async function verifyLoginChallenge(token: string): Promise<string> {
+    const { payload } = await jwtVerify(token, secretKey, {
+        issuer: ISSUER,
+        audience: LOGIN_CHALLENGE_AUDIENCE,
+        algorithms: ['HS256'],
+    });
+    if (typeof payload.sub !== 'string' || payload.typ !== 'login_challenge') {
+        throw new Error('malformed login challenge');
+    }
+    return payload.sub;
+}
+
 export function generateRefreshToken(): string {
     return randomBytes(32).toString('base64url');
 }

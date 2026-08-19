@@ -1,11 +1,12 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { fetchMe, refreshSession, signIn as apiSignIn, signOut as apiSignOut, setAccessToken, type SessionUser } from './api';
+import { fetchMe, refreshSession, signIn as apiSignIn, verifyLoginOtp as apiVerifyLoginOtp, signOut as apiSignOut, setAccessToken, type SessionUser, type SignInResult } from './api';
 interface AuthState {
     user: SessionUser | null;
     loading: boolean;
-    signIn: (identifier: string, password: string) => Promise<SessionUser>;
+    signIn: (identifier: string, password: string) => Promise<SignInResult>;
+    verifyLoginOtp: (challengeToken: string, code: string) => Promise<SessionUser>;
     signOut: () => Promise<void>;
     refresh: () => Promise<void>;
 }
@@ -39,7 +40,13 @@ export function AuthProvider({ children }: {
         };
     }, []);
     const signIn = useCallback(async (identifier: string, password: string) => {
-        const signedIn = await apiSignIn(identifier, password);
+        const result = await apiSignIn(identifier, password);
+        if (result.status === 'ok')
+            setUser(result.user);
+        return result;
+    }, []);
+    const verifyLoginOtp = useCallback(async (challengeToken: string, code: string) => {
+        const signedIn = await apiVerifyLoginOtp(challengeToken, code);
         setUser(signedIn);
         return signedIn;
     }, []);
@@ -56,7 +63,7 @@ export function AuthProvider({ children }: {
             setUser(null);
         }
     }, []);
-    const value = useMemo(() => ({ user, loading, signIn, signOut, refresh }), [user, loading, signIn, signOut, refresh]);
+    const value = useMemo(() => ({ user, loading, signIn, verifyLoginOtp, signOut, refresh }), [user, loading, signIn, verifyLoginOtp, signOut, refresh]);
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth(): AuthState {

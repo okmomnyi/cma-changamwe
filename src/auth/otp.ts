@@ -40,10 +40,19 @@ export async function issueEmailChangeOtp(client: PoolClient, userId: string, ne
      VALUES ($1, 'email_change', $2, $3, now() + ($4 || ' minutes')::interval)`, [userId, hashOtp(code), newEmail, String(OTP_TTL_MINUTES)], client);
     return code;
 }
+
+export async function issueLoginOtp(client: PoolClient, userId: string): Promise<string> {
+    const code = generateOtp();
+    await query(`UPDATE email_verifications SET consumed_at = now()
+     WHERE user_id = $1 AND purpose = 'login' AND consumed_at IS NULL`, [userId], client);
+    await query(`INSERT INTO email_verifications (user_id, purpose, code_hash, expires_at)
+     VALUES ($1, 'login', $2, now() + ($3 || ' minutes')::interval)`, [userId, hashOtp(code), String(OTP_TTL_MINUTES)], client);
+    return code;
+}
 export async function verifyOtp(client: PoolClient, subject: {
     draftId?: string;
     userId?: string;
-}, purpose: 'signup' | 'email_change', code: string): Promise<OtpVerification> {
+}, purpose: 'signup' | 'email_change' | 'login', code: string): Promise<OtpVerification> {
     const row = await queryOne<{
         id: string;
         code_hash: string;
