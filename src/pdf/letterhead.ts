@@ -24,6 +24,23 @@ export const PAGE_WIDTH = 595.28;
 export const PAGE_HEIGHT = 841.89;
 export const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
+/**
+ * Nothing is drawn below this line.
+ *
+ * Two thresholds have to clear. A printer will not put ink in the last few
+ * millimetres of the sheet, and some consumer machines give up as much as 14mm
+ * at the trailing edge. Worse, US Letter is 50pt shorter than A4, so A4 artwork
+ * printed on Letter without scaling simply loses the bottom 17.6mm.
+ *
+ * 756pt leaves 30mm to the foot of an A4 sheet and still sits 36pt clear of
+ * where a Letter page would end.
+ */
+export const SAFE_BOTTOM = 756;
+/** The footer rule, with its text between it and SAFE_BOTTOM. */
+export const FOOTER_Y = SAFE_BOTTOM - 15;
+/** No body content below this, or it collides with the footer. */
+export const CONTENT_BOTTOM = FOOTER_Y - 14;
+
 export type Doc = InstanceType<typeof PDFDocument>;
 
 export interface LetterheadOptions {
@@ -69,7 +86,7 @@ export function kes(amount: string | number | null | undefined): string {
 export function createDocument(): Doc {
     return new PDFDocument({
         size: 'A4',
-        margins: { top: MARGIN, bottom: MARGIN + 34, left: MARGIN, right: MARGIN },
+        margins: { top: MARGIN, bottom: PAGE_HEIGHT - CONTENT_BOTTOM, left: MARGIN, right: MARGIN },
         bufferPages: true,
         info: { Producer: 'CMA Changamwe', Creator: 'CMA Changamwe' },
     });
@@ -127,6 +144,17 @@ export function drawLetterhead(doc: Doc, opts: LetterheadOptions): number {
     return y + 16;
 }
 
+/**
+ * Moves to a new page if a block of the given height will not fit above the
+ * footer. Anything drawn as a unit, such as a signature line and its caption,
+ * has to ask first or pdfkit will split it across two pages.
+ */
+export function ensureSpace(doc: Doc, y: number, needed: number): number {
+    if (y + needed <= CONTENT_BOTTOM) return y;
+    doc.addPage();
+    return MARGIN;
+}
+
 /** A section heading with a hairline beneath it. */
 export function sectionHeading(doc: Doc, text: string, y?: number): number {
     const top = y ?? doc.y;
@@ -138,8 +166,8 @@ export function sectionHeading(doc: Doc, text: string, y?: number): number {
     return ruleY + 9;
 }
 
-/** A label above its value, two to a row. */
-export function fieldGrid(doc: Doc, pairs: Array<[string, string]>, startY: number, columns = 2): number {
+/** A label above its value, two to a row. `lead` is the space after each row. */
+export function fieldGrid(doc: Doc, pairs: Array<[string, string]>, startY: number, columns = 2, lead = 9): number {
     const gap = 14;
     const colWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns;
     let y = startY;
@@ -156,7 +184,7 @@ export function fieldGrid(doc: Doc, pairs: Array<[string, string]>, startY: numb
                 .text(value || '-', x, valueY, { width: colWidth });
             rowHeight = Math.max(rowHeight, doc.y - y);
         });
-        y += rowHeight + 9;
+        y += rowHeight + lead;
     }
     return y;
 }
@@ -177,7 +205,7 @@ export function table(
     startY: number,
     onNewPage?: () => void,
 ): number {
-    const bottomLimit = PAGE_HEIGHT - MARGIN - 40;
+    const bottomLimit = CONTENT_BOTTOM;
     let y = startY;
 
     const header = () => {
@@ -237,10 +265,9 @@ export function table(
 export async function drawVerification(doc: Doc, documentId: string, y: number): Promise<void> {
     const url = verificationUrl(documentId);
     const boxHeight = 96;
-    const bottomLimit = PAGE_HEIGHT - MARGIN - 40;
 
     let top = y + 10;
-    if (top + boxHeight > bottomLimit) {
+    if (top + boxHeight > CONTENT_BOTTOM) {
         doc.addPage();
         top = MARGIN;
     }
@@ -285,7 +312,7 @@ export function drawFooters(doc: Doc, documentId: string, orgName: string): numb
         const bottomMargin = doc.page.margins.bottom;
         doc.page.margins.bottom = 0;
 
-        const y = PAGE_HEIGHT - MARGIN - 18;
+        const y = FOOTER_Y;
         doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_WIDTH, y)
             .lineWidth(0.5).strokeColor(HAIRLINE).stroke();
 
