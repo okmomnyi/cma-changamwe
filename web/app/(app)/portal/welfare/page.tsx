@@ -65,7 +65,7 @@ export default function PortalWelfarePage() {
               <tr>
                 <th scope="col">Support</th>
                 <th scope="col" className="numeric">Amount</th>
-                <th scope="col">Standing used</th>
+                <th scope="col">Month used</th>
                 <th scope="col">Status</th>
                 <th scope="col">Date</th>
               </tr>

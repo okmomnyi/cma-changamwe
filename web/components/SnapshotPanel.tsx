@@ -59,8 +59,8 @@ export function SnapshotPanel() {
             body: JSON.stringify({ period }),
         });
         return result.written > 0
-            ? `Wrote ${result.written} snapshots for ${formatMonth(`${period}-01`)}. Reports go out in the daily batch.`
-            : `Every member already has a snapshot for ${formatMonth(`${period}-01`)}. Nothing was overwritten, because a snapshot cannot be.`;
+            ? `${formatMonth(`${period}-01`)} closed for ${result.written} members. Their reports go out with the next sending.`
+            : `${formatMonth(`${period}-01`)} was already closed for every member. Nothing was changed.`;
     });
 
     const retryFailed = () => run(async () => {
@@ -71,14 +71,14 @@ export function SnapshotPanel() {
             body: JSON.stringify({ period }),
         });
         return result.requeued > 0
-            ? `${result.requeued} reports put back in the queue. They go out in the next daily batch.`
+            ? `${result.requeued} reports queued again. They go out with the next sending.`
             : 'There were no failed reports to retry.';
     });
 
     return (<section className="card" aria-labelledby="snapshots">
       <div className="cardHeader">
         <h2 id="snapshots">Monthly reports</h2>
-        <span className="subtle small">Written once a month, then never changed</span>
+        <span className="subtle small">Once a month, then fixed</span>
       </div>
 
       <div className="cardBody">
@@ -86,9 +86,8 @@ export function SnapshotPanel() {
         {notice ? <p className="notice" role="status">{notice}</p> : null}
 
         <p className="muted small" style={{ marginBottom: 'var(--space-4)' }}>
-          A snapshot freezes the scores for a month that has ended, and that frozen copy is what
-          members receive and what a welfare decision rests on. The current month cannot be
-          snapshotted, because the figures would be part of a month and could never be corrected.
+          Closing a month freezes its scores. That frozen copy is what members receive and what a
+          welfare decision rests on, so a month still running cannot be closed.
         </p>
 
         <div className={styles.controls}>
@@ -119,8 +118,8 @@ export function SnapshotPanel() {
         {loadError ? <ErrorState error={loadError} onRetry={reload}/> : null}
 
         {data && taken === 0 && !loading ? (
-          <EmptyState title={`No snapshot for ${formatMonth(`${period}-01`)}`}
-            description="Take it and the reports enter the send queue, one batch a day until the period is delivered."/>
+          <EmptyState title={`${formatMonth(`${period}-01`)} is not closed yet`}
+            description="Closing it puts every member report in the queue to be sent."/>
         ) : null}
 
         {data && taken > 0 ? (
@@ -137,8 +136,8 @@ export function SnapshotPanel() {
         {failed > 0 ? (
           <p className="noticeWarn" role="status" style={{ marginTop: 'var(--space-4)' }}>
             {failed === 1 ? 'One report' : `${failed} reports`} could not be delivered. A member
-            with no sign-in account has nowhere to receive one, so enrol their account or hand
-            them a printed copy. Anything else is worth retrying.
+            with no account has nowhere to receive one, so give them a printed copy. Anything
+            else is worth retrying.
           </p>
         ) : null}
       </div>

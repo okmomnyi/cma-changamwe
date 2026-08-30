@@ -71,7 +71,7 @@ export function PhotoUpload({ endpoints, headers, label = 'Photograph', hint, on
                 body: compressed.blob,
             });
             if (!put.ok) {
-                throw new ApiError(put.status, 'upload_failed', 'The upload to storage was refused. If this persists, check the bucket CORS rules.');
+                throw new ApiError(put.status, 'upload_failed', 'That photograph could not be saved. Try again, and if it keeps happening tell the Secretary.');
             }
             setStage('saving');
             await api(endpoints.confirm, {

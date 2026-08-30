@@ -3,7 +3,7 @@
 import { useResource } from '@/lib/useResource';
 import { ErrorState, LoadingState, PageHeader, Stat, StatGrid } from '@/components/ui';
 import { formatKes } from '@/lib/format';
-import { BackupPanel } from '@/components/BackupPanel';
+import { BackupStatusCard } from '@/components/BackupStatusCard';
 import { DownloadButton } from '@/components/DownloadButton';
 interface SummaryResponse {
     summary: {
@@ -45,7 +45,7 @@ export default function AdminOverview() {
       </StatGrid>
 
       <div style={{ marginTop: 'var(--space-5)' }}>
-        <BackupPanel/>
+        <BackupStatusCard/>
       </div>
 
       <section className="card" style={{ marginTop: 'var(--space-5)' }} aria-labelledby="exports">

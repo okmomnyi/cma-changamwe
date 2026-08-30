@@ -136,7 +136,7 @@ export function ClaimDecision({ claim, onDone }: { claim: ClaimRow; onDone: () =
                 {' '}on {Number(standing.snapshot.total_score).toFixed(2)} of{' '}
                 {Number(standing.snapshot.attainable_total).toFixed(0)}.
               </>) : (
-                <>No snapshot for {formatMonth(`${period}-01`)}. Take it from the Matrix page, or record a reason below.</>
+                <>{formatMonth(`${period}-01`)} is not closed yet. Close it from the Matrix page, or record a reason below.</>
               )}
             </div>
           ) : null}
@@ -155,8 +155,8 @@ export function ClaimDecision({ claim, onDone }: { claim: ClaimRow; onDone: () =
                 placeholder="e.g. committee of 4 August agreed to pay despite the standing"
                 onChange={(e) => setOverride(e.target.value)} aria-describedby={`override-hint-${claim.id}`}/>
               <p id={`override-hint-${claim.id}`} className="subtle small">
-                Approving against the Matrix needs a reason. It is kept in the audit log with the
-                standing that was actually on record.
+                Approving against the Matrix needs a reason. It is recorded alongside the standing
+                the member actually held.
               </p>
             </div>
           ) : null}

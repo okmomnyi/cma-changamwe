@@ -49,7 +49,7 @@ export default function WelfarePage() {
     return (<>
       <PageHeader
         title="Welfare support"
-        description="What the association has paid out under section 5.3, and the standing each decision rested on. Eligibility comes from the frozen monthly snapshot, not the live score, so a decision can still be explained a year later."
+        description="What the association has paid out under section 5.3, and the standing each decision rested on. Eligibility comes from a member's closed month, not their score today, so a decision can still be explained a year later."
         actions={<button type="button" className="btn btnPrimary" onClick={() => setOpening((o) => !o)} aria-expanded={opening}>
             <Plus size={15} aria-hidden="true"/>
             {opening ? 'Close' : 'Open a claim'}
@@ -130,7 +130,7 @@ export default function WelfarePage() {
                   {claim.period ? (<>
                     <span className="small">{formatMonth(`${claim.period}-01`)}</span>
                     <span className="subtle small" style={{ display: 'block' }}>
-                      {claim.standing_relied_on ? titleCase(claim.standing_relied_on) : 'No snapshot'}
+                      {claim.standing_relied_on ? titleCase(claim.standing_relied_on) : 'Month not closed'}
                       {claim.score_relied_on ? ` (${Number(claim.score_relied_on).toFixed(2)})` : ''}
                     </span>
                   </>) : <span className="subtle small">Not yet decided</span>}
@@ -160,8 +160,8 @@ export default function WelfarePage() {
 
       <p className="muted small" style={{ marginTop: 'var(--space-5)' }}>
         <HandCoins size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '0.35rem' }}/>
-        Amounts come from the by-laws and can be edited on a claim where the committee has agreed
-        something different. Every decision, override and payment is written to the audit log.
+        Amounts come from the by-laws, and can be changed on a claim where the committee agreed
+        something different. Every decision and payment is recorded.
       </p>
     </>);
 }

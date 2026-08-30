@@ -42,9 +42,7 @@ export default function AuditPage() {
       <p className="card cardTight row" style={{ marginBottom: 'var(--space-5)' }}>
         <Lock size={16} aria-hidden="true" className="subtle"/>
         <span className="small muted">
-          This log is append-only. The application database role holds no permission to update or
-          delete these rows, and database triggers refuse the attempt even from the schema owner.
-          Nothing shown here can be edited or erased from inside the system.
+          Entries are only ever added. Nothing shown here can be edited or erased, by anyone.
         </span>
       </p>
 
