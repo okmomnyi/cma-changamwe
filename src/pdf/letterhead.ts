@@ -1,5 +1,4 @@
 import PDFDocument from 'pdfkit';
-import QRCode from 'qrcode';
 import { DateTime } from 'luxon';
 import { NAIROBI } from '../util/time.js';
 import { verificationUrl } from '../documents/signing.js';
@@ -36,10 +35,10 @@ export const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
  * where a Letter page would end.
  */
 export const SAFE_BOTTOM = 756;
-/** The footer rule, with its text between it and SAFE_BOTTOM. */
-export const FOOTER_Y = SAFE_BOTTOM - 15;
+/** The rule above the footer band, which holds the verification. */
+export const FOOTER_Y = SAFE_BOTTOM - 58;
 /** No body content below this, or it collides with the footer. */
-export const CONTENT_BOTTOM = FOOTER_Y - 14;
+export const CONTENT_BOTTOM = FOOTER_Y - 12;
 
 export type Doc = InstanceType<typeof PDFDocument>;
 
@@ -259,70 +258,52 @@ export function table(
 }
 
 /**
- * The verification panel: how a stranger checks this document is genuine.
- * Placed at the end of the body, before the footers are stamped.
+ * The footer band, stamped on every page once the body is finished and the
+ * page count is known.
+ *
+ * The verification lives here rather than in the body, so it does not flow with
+ * the content, cannot be pushed onto a page of its own, and appears on every
+ * sheet. A page separated from the rest still carries the means to check it.
  */
-export async function drawVerification(doc: Doc, documentId: string, y: number): Promise<void> {
+export function drawFooters(doc: Doc, documentId: string, orgName: string, qr: Buffer): number {
     const url = verificationUrl(documentId);
-    const boxHeight = 96;
-
-    let top = y + 10;
-    if (top + boxHeight > CONTENT_BOTTOM) {
-        doc.addPage();
-        top = MARGIN;
-    }
-
-    doc.roundedRect(MARGIN, top, CONTENT_WIDTH, boxHeight, 4)
-        .lineWidth(0.7).strokeColor(RULE).stroke();
-
-    const qr = await QRCode.toBuffer(url, {
-        type: 'png', margin: 0, width: 240,
-        color: { dark: NAVY_DARK, light: '#FFFFFF' },
-    });
-    doc.image(qr, MARGIN + 12, top + 12, { width: 72, height: 72 });
-
-    const textX = MARGIN + 98;
-    const textWidth = CONTENT_WIDTH - 110;
-
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(BRASS)
-        .text('VERIFY THIS DOCUMENT', textX, top + 13, { characterSpacing: 0.8 });
-
-    doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
-        .text('Scan the code, or visit the address below, to confirm this document was issued by '
-            + 'the association and has not been altered since.', textX, top + 26, { width: textWidth });
-
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
-        .text(url, textX, top + 54, { width: textWidth, link: url, underline: false });
-
-    doc.font('Helvetica').fontSize(7.5).fillColor(SUBTLE)
-        .text(`Document ${documentId}  ·  sealed with an Ed25519 signature`, textX, top + 70, { width: textWidth });
-}
-
-/**
- * Stamped on every page once the body is finished, so the page count is known.
- */
-export function drawFooters(doc: Doc, documentId: string, orgName: string): number {
     const range = doc.bufferedPageRange();
+
     for (let i = 0; i < range.count; i += 1) {
         doc.switchToPage(range.start + i);
 
-        // The footer sits below the text area on purpose. Without lifting the
-        // bottom margin first, pdfkit treats that as an overflow and starts a
-        // new page for every footer it draws.
+        // The band sits below the text area on purpose. Without lifting the
+        // bottom margin, pdfkit treats that as an overflow and starts a new
+        // page for every footer it draws.
         const bottomMargin = doc.page.margins.bottom;
         doc.page.margins.bottom = 0;
 
-        const y = FOOTER_Y;
-        doc.moveTo(MARGIN, y).lineTo(MARGIN + CONTENT_WIDTH, y)
+        doc.moveTo(MARGIN, FOOTER_Y).lineTo(MARGIN + CONTENT_WIDTH, FOOTER_Y)
             .lineWidth(0.5).strokeColor(HAIRLINE).stroke();
 
-        doc.font('Helvetica').fontSize(7).fillColor(SUBTLE);
-        doc.text(`${orgName}  ·  Issued ${nowStamp()}`, MARGIN, y + 6, {
-            width: CONTENT_WIDTH * 0.6, lineBreak: false,
-        });
-        doc.text(`${documentId}  ·  Page ${i + 1} of ${range.count}`, MARGIN + CONTENT_WIDTH * 0.4, y + 6, {
-            width: CONTENT_WIDTH * 0.6, align: 'right', lineBreak: false,
-        });
+        const qrSize = 46;
+        const top = FOOTER_Y + 9;
+        doc.image(qr, MARGIN, top, { width: qrSize, height: qrSize });
+
+        const textX = MARGIN + qrSize + 10;
+        const textWidth = CONTENT_WIDTH - qrSize - 10;
+
+        doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BRASS)
+            .text('VERIFY THIS DOCUMENT', textX, top, {
+                width: textWidth, characterSpacing: 0.7, lineBreak: false,
+            });
+
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(NAVY)
+            .text(url, textX, top + 10, { width: textWidth, link: url, lineBreak: false });
+
+        doc.font('Helvetica').fontSize(6.5).fillColor(SUBTLE)
+            .text(`${orgName}  ·  Issued ${nowStamp()}  ·  Sealed with an Ed25519 signature`,
+                textX, top + 22, { width: textWidth, lineBreak: false });
+
+        doc.font('Helvetica').fontSize(6.5).fillColor(SUBTLE)
+            .text(`Page ${i + 1} of ${range.count}`, textX, top + 22, {
+                width: textWidth, align: 'right', lineBreak: false,
+            });
 
         doc.page.margins.bottom = bottomMargin;
     }

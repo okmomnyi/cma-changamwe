@@ -80,28 +80,28 @@ export function drawBiodata(doc: Doc, data: {
         ['Year of birth', value(member.year_of_birth)],
         ['ID or passport number', value(member.id_or_passport_no)],
         ['Mobile number', value(member.mobile_no)],
-    ], y, textWidth === CONTENT_WIDTH ? 2 : 1, 6);
+    ], y, textWidth === CONTENT_WIDTH ? 2 : 1, 5);
 
     if (photo) y = Math.max(y, startY + photoHeight + 12);
 
-    y = sectionHeading(doc, 'Membership', y + 4);
+    y = sectionHeading(doc, 'Membership', y + 2);
     y = fieldGrid(doc, [
         ['Prayer house', value(member.prayer_house)],
         ['Jumuiya', value(member.jumuiya)],
         ['Home parish or diocese', value(member.home_parish_diocese)],
         ['Membership', titleCase(member.membership_status)],
-    ], y, 2, 6);
+    ], y, 2, 5);
 
-    y = sectionHeading(doc, 'Family', y + 4);
+    y = sectionHeading(doc, 'Family', y + 2);
     y = fieldGrid(doc, [
         ['Marital status', titleCase(member.marital_status)],
         ['Spouse name', value(member.spouse_name)],
         ['Spouse', titleCase(member.spouse_status)],
         ['Father', titleCase(member.father_status)],
         ['Mother', titleCase(member.mother_status)],
-    ], y, 2, 6);
+    ], y, 2, 5);
 
-    y = sectionHeading(doc, 'Children', y + 4);
+    y = sectionHeading(doc, 'Children', y + 2);
     if (children.length === 0) {
         doc.font('Helvetica').fontSize(9.5).fillColor(MUTED)
             .text('None recorded.', MARGIN, y, { width: CONTENT_WIDTH });
@@ -116,37 +116,37 @@ export function drawBiodata(doc: Doc, data: {
         y += 6;
     }
 
-    y = sectionHeading(doc, 'Next of kin', y + 4);
+    y = sectionHeading(doc, 'Next of kin', y + 2);
     y = fieldGrid(doc, [
         ['Name', value(member.next_of_kin_name)],
         ['Mobile number', value(member.next_of_kin_mobile)],
         ['ID number', value(member.next_of_kin_id_no)],
-    ], y, 2, 6);
+    ], y, 2, 5);
 
-    y = sectionHeading(doc, 'Declaration', y + 4);
+    y = sectionHeading(doc, 'Declaration', y + 2);
     doc.font('Helvetica').fontSize(9).fillColor(INK)
         .text('The member confirms the details above are true, and undertakes to observe the '
             + 'constitution of the Catholic Men Association and the governing by-laws of this parish.',
             MARGIN, y, { width: CONTENT_WIDTH });
-    y = doc.y + 8;
+    y = doc.y + 5;
     y = fieldGrid(doc, [
         ['Accepted on', formatDate(member.declaration_accepted_at ?? member.created_at)],
         ['On the register since', formatDate(member.created_at)],
-    ], y, 2, 6);
+    ], y, 2, 5);
 
     // Space for a wet signature, which the parish still asks for. Kept whole:
     // a rule on one page and its caption on the next helps nobody.
-    y = ensureSpace(doc, y + 6, 36);
+    y = ensureSpace(doc, y + 2, 30);
     const half = (CONTENT_WIDTH - 30) / 2;
-    doc.moveTo(MARGIN, y + 20).lineTo(MARGIN + half, y + 20)
+    doc.moveTo(MARGIN, y + 18).lineTo(MARGIN + half, y + 18)
         .lineWidth(0.6).strokeColor(RULE).stroke();
-    doc.moveTo(MARGIN + half + 30, y + 20).lineTo(MARGIN + CONTENT_WIDTH, y + 20)
+    doc.moveTo(MARGIN + half + 30, y + 18).lineTo(MARGIN + CONTENT_WIDTH, y + 18)
         .lineWidth(0.6).strokeColor(RULE).stroke();
     doc.font('Helvetica').fontSize(7).fillColor(SUBTLE)
-        .text('MEMBER SIGNATURE', MARGIN, y + 24, { width: half, characterSpacing: 0.5 });
-    doc.text('SECRETARY OR COORDINATOR', MARGIN + half + 30, y + 24, { width: half, characterSpacing: 0.5 });
+        .text('MEMBER SIGNATURE', MARGIN, y + 22, { width: half, characterSpacing: 0.5 });
+    doc.text('SECRETARY OR COORDINATOR', MARGIN + half + 30, y + 22, { width: half, characterSpacing: 0.5 });
 
-    return y + 36;
+    return y + 32;
 }
 
 export interface MatrixItem {

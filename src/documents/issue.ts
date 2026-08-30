@@ -2,10 +2,10 @@ import { query, queryOne } from '../db/pool.js';
 import { logger } from '../util/logger.js';
 import { AppError } from '../util/errors.js';
 import {
-    keyId, newDocumentId, sha256, signDigest, signingConfigured,
+    keyId, newDocumentId, sha256, signDigest, signingConfigured, verificationUrl,
     type DocumentKind,
 } from './signing.js';
-import { drawFooters, drawVerification, finish, type Doc } from '../pdf/letterhead.js';
+import { drawFooters, finish, type Doc } from '../pdf/letterhead.js';
 
 export interface IssueRequest {
     kind: DocumentKind;
@@ -51,9 +51,15 @@ export async function issueDocument(
     const { createDocument } = await import('../pdf/letterhead.js');
     const doc = createDocument();
 
-    const endY = await body(doc, documentId);
-    await drawVerification(doc, documentId, endY);
-    const pages = drawFooters(doc, documentId, request.orgName);
+    await body(doc, documentId);
+
+    // One code for the whole document, drawn into every footer.
+    const QRCode = (await import('qrcode')).default;
+    const qr = await QRCode.toBuffer(verificationUrl(documentId), {
+        type: 'png', margin: 0, width: 240,
+        color: { dark: '#12293F', light: '#FFFFFF' },
+    });
+    const pages = drawFooters(doc, documentId, request.orgName, qr);
 
     const pdf = await finish(doc);
     const digest = sha256(pdf);
