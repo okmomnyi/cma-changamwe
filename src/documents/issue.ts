@@ -1,5 +1,6 @@
 import { query, queryOne } from '../db/pool.js';
 import { logger } from '../util/logger.js';
+import { AppError } from '../util/errors.js';
 import {
     keyId, newDocumentId, sha256, signDigest, signingConfigured,
     type DocumentKind,
@@ -39,10 +40,11 @@ export async function issueDocument(
     body: (doc: Doc, documentId: string) => Promise<number> | number,
 ): Promise<IssuedDocument> {
     if (!signingConfigured) {
-        throw new Error(
-            'DOCUMENT_SIGNING_KEY is not set, so documents cannot be issued. '
-            + 'Generate one with: npm run documents:keygen',
-        );
+        // A missing key is a deployment fault, not the officer's. Say so
+        // plainly rather than answering with a generic server error.
+        throw new AppError(503, 'signing_unavailable',
+            'Documents cannot be issued because this installation has no signing key. '
+            + 'Whoever looks after the system needs to set DOCUMENT_SIGNING_KEY.');
     }
 
     const documentId = newDocumentId(request.kind);
