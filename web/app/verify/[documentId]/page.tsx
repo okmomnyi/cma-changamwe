@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileWarning, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, FileWarning, KeyRound, ShieldAlert, ShieldCheck, Upload } from 'lucide-react';
 import styles from './verify.module.css';
 
 interface Document {
@@ -68,6 +68,12 @@ function detailValue(key: string, value: unknown): string {
     return String(value).replace(/_/g, ' ');
 }
 
+type Check =
+    | { state: 'idle' }
+    | { state: 'reading' }
+    | { state: 'done'; matches: boolean; verdict: string }
+    | { state: 'error'; message: string };
+
 function formatWhen(iso: string): string {
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? iso : new Intl.DateTimeFormat('en-GB', {
@@ -90,6 +96,7 @@ export default function VerifyPage({ params }: { params: Promise<{ documentId: s
     const [doc, setDoc] = useState<Document | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [check, setCheck] = useState<Check>({ state: 'idle' });
 
     useEffect(() => {
         let cancelled = false;
@@ -106,6 +113,34 @@ export default function VerifyPage({ params }: { params: Promise<{ documentId: s
     }, [id]);
 
     const details = doc ? Object.entries(doc.details).filter(([, v]) => v !== null && v !== '') : [];
+
+    /**
+     * The file is hashed here, in the browser. Nothing is uploaded, so a
+     * member's bio-data never leaves the machine of whoever is checking it.
+     */
+    async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        setCheck({ state: 'reading' });
+        try {
+            const buffer = await file.arrayBuffer();
+            const digestBytes = await crypto.subtle.digest('SHA-256', buffer);
+            const digest = Array.from(new Uint8Array(digestBytes))
+                .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+            const res = await fetch(`/api/verify/${encodeURIComponent(id)}/check`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ sha256: digest }),
+            });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body?.error?.message ?? 'That check could not be completed.');
+            setCheck({ state: 'done', matches: body.matches, verdict: body.verdict });
+        }
+        catch (e) {
+            setCheck({ state: 'error', message: e instanceof Error ? e.message : 'That file could not be read.' });
+        }
+    }
 
     return (<main id="main" className={styles.page}>
       <div className={styles.sheet}>
@@ -187,6 +222,51 @@ export default function VerifyPage({ params }: { params: Promise<{ documentId: s
               </dl>
             </section>
           ) : null}
+
+          <section className={styles.block} aria-labelledby="check">
+            <h2 id="check" className={styles.blockTitle}>
+              <Upload size={16} aria-hidden="true"/>
+              Settle it outright
+            </h2>
+            <p className={styles.small}>
+              Comparing the details above catches most alterations. To be certain, choose the PDF
+              file: it is read in this browser and never uploaded, so nothing on it leaves your
+              device. Only a fingerprint is compared.
+            </p>
+
+            <label className={styles.file}>
+              <input type="file" accept="application/pdf,.pdf" onChange={onFile}/>
+              <span>Choose the PDF</span>
+            </label>
+
+            {check.state === 'reading' ? <p className={styles.small}>Reading the file...</p> : null}
+
+            {check.state === 'error' ? (
+              <div className={styles.bad} role="alert">
+                <FileWarning size={20} aria-hidden="true"/>
+                <span className={styles.small}>{check.message}</span>
+              </div>
+            ) : null}
+
+            {check.state === 'done' ? (
+              <div className={check.matches ? styles.good : styles.bad} role="status">
+                {check.matches ? <BadgeCheck size={20} aria-hidden="true"/> : <FileWarning size={20} aria-hidden="true"/>}
+                <div>
+                  <p className={styles.verdict}>
+                    {check.matches ? 'The file is the one that was issued' : 'The file does not match'}
+                  </p>
+                  <p className={styles.small}>{check.verdict}</p>
+                </div>
+              </div>
+            ) : null}
+
+            <p className={`${styles.small} ${styles.aside}`}>
+              <KeyRound size={13} aria-hidden="true"/>
+              Checking for an institution?{' '}
+              <a href="/api/verify/public-key" download>Download the public key</a>
+              {' '}to verify the seal yourself, without relying on this page.
+            </p>
+          </section>
 
           <p className={styles.foot}>
             Questions about a document should go to the parish office.{' '}

@@ -266,9 +266,14 @@ That summary is deliberately narrow. It carries counts, dates and the subject,
 never the identity numbers or next-of-kin the document itself holds, because
 anyone can reach the page.
 
-What it proves: the number is real, the record is sealed, and the details on
-screen are what was issued. Comparing those against the paper is what catches an
-alteration.
+Below that, the file itself can be checked outright. **It is never uploaded.**
+The browser hashes it with WebCrypto and sends only the digest, so a member's
+bio-data does not cross the network to be checked, and no upload limit applies.
+
+So there are two levels. Reading the summary against the paper catches most
+alterations and needs nothing but eyes. Checking the file settles it byte for
+byte. An institution that would rather not take the page at its word can
+download the public key and verify the signature itself.
 
 `documents` rows cannot be deleted, by grant and by trigger. A document that
 should no longer be relied on is revoked, which the verification page reports;

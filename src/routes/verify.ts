@@ -3,17 +3,18 @@ import { z } from 'zod';
 import { findDocument } from '../documents/issue.js';
 import { publicKeyPem, keyId, signingConfigured, verifyDigest } from '../documents/signing.js';
 import { reportDownloadLimiter } from '../middleware/rateLimit.js';
-import { notFound } from '../util/errors.js';
+import { badRequest, notFound } from '../util/errors.js';
 
 /**
  * Public. No account, no session.
  *
- * Someone holding a document scans its code and lands here. What is returned is
- * what the association issued under that number, so the details on screen can
- * be read against the paper in hand.
+ * Someone holding a document scans its code and lands here. The summary says
+ * what the association issued under that number, so it can be read against the
+ * paper in hand; the check below settles it outright, byte for byte.
  *
- * Deliberately narrow: counts, dates and the subject, never the identity
- * numbers or next-of-kin the document itself carries. Anyone can reach this.
+ * The summary is deliberately narrow: counts, dates and the subject, never the
+ * identity numbers or next-of-kin the document itself carries. Anyone can reach
+ * this page with nothing but a document number.
  */
 export const verifyRouter = Router();
 
@@ -68,6 +69,47 @@ verifyRouter.get('/:documentId', reportDownloadLimiter, async (req, res, next) =
         });
     }
     catch (err) {
+        next(err);
+    }
+});
+
+const checkSchema = z.object({
+    sha256: z.string().trim().toLowerCase()
+        .regex(/^[0-9a-f]{64}$/, 'That is not a SHA-256 digest.'),
+});
+
+/**
+ * The file itself is never uploaded. The browser hashes it locally and sends
+ * only the digest, so a member's bio-data does not travel across the network to
+ * be checked, and no upload limit applies.
+ */
+verifyRouter.post('/:documentId/check', reportDownloadLimiter, async (req, res, next) => {
+    try {
+        const documentId = DOCUMENT_ID.parse(req.params.documentId);
+        const { sha256 } = checkSchema.parse(req.body);
+
+        const record = await findDocument(documentId);
+        if (!record)
+            throw notFound('No document with that number has been issued.');
+
+        const matches = record.sha256 === sha256;
+        res.json({
+            document_id: record.document_id,
+            matches,
+            revoked: record.revoked_at !== null,
+            seal_intact: verifyDigest(record.sha256, record.signature),
+            verdict: matches
+                ? (record.revoked_at !== null
+                    ? 'This is the file the association issued, but the document has since been withdrawn.'
+                    : 'This is the file the association issued. Not one byte has changed.')
+                : 'This file does not match the document issued under that number. It has been altered, or it is a different file.',
+        });
+    }
+    catch (err) {
+        if (err && typeof err === 'object' && 'issues' in err) {
+            next(badRequest('Send the SHA-256 digest of the file as a 64-character hex string.'));
+            return;
+        }
         next(err);
     }
 });
