@@ -1,0 +1,106 @@
+name: CI/CD
+
+# Test every push and pull request; deploy only when main advances.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One pipeline per ref at a time. A deploy is never interrupted mid-flight.
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test and build
+    runs-on: ubuntu-latest
+
+    # A throwaway Postgres so every migration is applied from scratch and the
+    # least-privilege grants are proven to work before anything ships.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: cma_owner
+          POSTGRES_PASSWORD: ci_owner_password
+          POSTGRES_DB: cma_changamwe
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cma_owner"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Install API dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build API
+        run: npm run build
+
+      - name: Validate migrations and grants against a fresh database
+        env:
+          MIGRATION_DATABASE_URL: postgres://cma_owner:ci_owner_password@localhost:5432/cma_changamwe
+          DATABASE_URL: postgres://cma_owner:ci_owner_password@localhost:5432/cma_changamwe
+          APP_DB_USER: cma_app
+          APP_DB_PASSWORD: ci_app_password
+          TZ: Africa/Nairobi
+        run: |
+          # node-pg-migrate loads --envPath .env, and apply-grants reads dotenv.
+          cat > .env <<ENV
+          MIGRATION_DATABASE_URL=$MIGRATION_DATABASE_URL
+          DATABASE_URL=$DATABASE_URL
+          APP_DB_USER=$APP_DB_USER
+          APP_DB_PASSWORD=$APP_DB_PASSWORD
+          TZ=$TZ
+          ENV
+          npm run migrate
+          rm -f .env
+
+      - name: Install web dependencies
+        run: npm --prefix web ci --no-audit --no-fund
+
+      - name: Build web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm --prefix web run build
+
+  deploy:
+    name: Deploy to VPS
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          test -n "$VPS_SSH_KEY" || { echo "VPS_SSH_KEY secret is not set"; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" 'bash -s' < .github/scripts/vps-deploy.sh
