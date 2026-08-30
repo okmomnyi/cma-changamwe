@@ -24,19 +24,17 @@ export const PAGE_HEIGHT = 841.89;
 export const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
 /**
- * Nothing is drawn below this line.
+ * Nothing is drawn below this line: 19mm from the foot of an A4 sheet, the same
+ * as the margin at the top, which is where a footer belongs and well clear of
+ * the few millimetres a printer cannot reach.
  *
- * Two thresholds have to clear. A printer will not put ink in the last few
- * millimetres of the sheet, and some consumer machines give up as much as 14mm
- * at the trailing edge. Worse, US Letter is 50pt shorter than A4, so A4 artwork
- * printed on Letter without scaling simply loses the bottom 17.6mm.
- *
- * 756pt leaves 30mm to the foot of an A4 sheet and still sits 36pt clear of
- * where a Letter page would end.
+ * It does not clear a US Letter sheet, which is 17.6mm shorter than A4. That is
+ * a deliberate trade: this parish prints on A4, and any print dialog set to fit
+ * the page scales rather than clips.
  */
-export const SAFE_BOTTOM = 756;
+export const SAFE_BOTTOM = PAGE_HEIGHT - MARGIN;
 /** The rule above the footer band, which holds the verification. */
-export const FOOTER_Y = SAFE_BOTTOM - 58;
+export const FOOTER_Y = SAFE_BOTTOM - 53;
 /** No body content below this, or it collides with the footer. */
 export const CONTENT_BOTTOM = FOOTER_Y - 12;
 
@@ -281,27 +279,28 @@ export function drawFooters(doc: Doc, documentId: string, orgName: string, qr: B
         doc.moveTo(MARGIN, FOOTER_Y).lineTo(MARGIN + CONTENT_WIDTH, FOOTER_Y)
             .lineWidth(0.5).strokeColor(HAIRLINE).stroke();
 
-        const qrSize = 46;
-        const top = FOOTER_Y + 9;
+        const qrSize = 44;
+        const top = FOOTER_Y + 7;
         doc.image(qr, MARGIN, top, { width: qrSize, height: qrSize });
 
-        const textX = MARGIN + qrSize + 10;
-        const textWidth = CONTENT_WIDTH - qrSize - 10;
+        const textX = MARGIN + qrSize + 9;
+        const textWidth = CONTENT_WIDTH - qrSize - 9;
 
-        doc.font('Helvetica-Bold').fontSize(6.5).fillColor(BRASS)
-            .text('VERIFY THIS DOCUMENT', textX, top, {
-                width: textWidth, characterSpacing: 0.7, lineBreak: false,
+        // No heading, and nothing naming the mechanism. A document that
+        // advertises how it is protected invites someone to test it, and the
+        // people who need this already scanned the code to get here.
+        doc.font('Helvetica').fontSize(6.5).fillColor(SUBTLE)
+            .text(`${orgName}  ·  Issued ${nowStamp()}`, textX, top + 13, {
+                width: textWidth, lineBreak: false,
             });
 
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(NAVY)
-            .text(url, textX, top + 10, { width: textWidth, link: url, lineBreak: false });
+        doc.font('Helvetica').fontSize(7).fillColor(NAVY)
+            .text(url.replace(/^https?:\/\//, ''), textX, top + 25, {
+                width: textWidth, link: url, lineBreak: false,
+            });
 
         doc.font('Helvetica').fontSize(6.5).fillColor(SUBTLE)
-            .text(`${orgName}  ·  Issued ${nowStamp()}  ·  Sealed with an Ed25519 signature`,
-                textX, top + 22, { width: textWidth, lineBreak: false });
-
-        doc.font('Helvetica').fontSize(6.5).fillColor(SUBTLE)
-            .text(`Page ${i + 1} of ${range.count}`, textX, top + 22, {
+            .text(`Page ${i + 1} of ${range.count}`, textX, top + 25, {
                 width: textWidth, align: 'right', lineBreak: false,
             });
 
