@@ -12,9 +12,6 @@ let refreshInFlight: Promise<boolean> | null = null;
 export function setAccessToken(token: string | null): void {
     accessToken = token;
 }
-export function hasAccessToken(): boolean {
-    return accessToken !== null;
-}
 export function getAccessToken(): string | null {
     return accessToken;
 }

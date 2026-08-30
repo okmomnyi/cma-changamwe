@@ -1,18 +1,19 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { env } from '../config/env.js';
-import { queryOne, withTransaction } from '../db/pool.js';
+import { query, queryOne, withTransaction } from '../db/pool.js';
 import { verifyPassword, hashPassword } from '../auth/password.js';
 import { hashToken, issueRefreshToken, revokeFamily, signAccessToken, signLoginChallenge, verifyLoginChallenge, } from '../auth/tokens.js';
+import { claimResetToken, issueResetToken, RESET_TTL_MINUTES } from '../auth/passwordReset.js';
 import { loadPrincipal } from '../auth/authz.js';
+import { writeAudit } from '../audit/audit.js';
 import { requireAuth, principalOf } from '../middleware/auth.js';
-import { loginLimiter } from '../middleware/rateLimit.js';
-import { otpVerifyLimiter } from '../middleware/rateLimit.js';
+import { loginLimiter, otpVerifyLimiter, passwordResetLimiter } from '../middleware/rateLimit.js';
 import { badRequest, tooManyRequests, unauthorized } from '../util/errors.js';
 import { logger } from '../util/logger.js';
 import { issueLoginOtp, verifyOtp, OTP_TTL_MINUTES } from '../auth/otp.js';
 import { sendEmail } from '../email/mailer.js';
-import { otpEmail } from '../email/templates.js';
+import { actionEmail, noticeEmail, otpEmail } from '../email/templates.js';
 export const authRouter = Router();
 const REFRESH_COOKIE = 'cma_refresh';
 const REFRESH_COOKIE_PATH = '/api/auth';
@@ -75,7 +76,9 @@ authRouter.post('/login', loginLimiter, async (req, res, next) => {
             throw unauthorized('Incorrect username or password');
 
         // Demo accounts skip the email step so reviewers can sign in directly.
-        if (user.is_demo) {
+        // The deployment decides whether that is allowed at all; the ID number
+        // is administrator-editable, so it must not be the only control.
+        if (user.is_demo && env.ALLOW_DEMO_LOGIN) {
             await issueSession(req, res, user.id, user.member_id);
             return;
         }
@@ -147,6 +150,119 @@ authRouter.post('/login/verify', otpVerifyLimiter, async (req, res, next) => {
                 : 'Incorrect code.');
         }
         await issueSession(req, res, user.id, user.member_id);
+    }
+    catch (err) {
+        next(err);
+    }
+});
+
+const resetRequestSchema = z.object({
+    identifier: z.string().trim().min(1, 'Enter your username or email address').max(320),
+});
+
+authRouter.post('/password-reset/request', passwordResetLimiter, async (req, res, next) => {
+    try {
+        const { identifier } = resetRequestSchema.parse(req.body);
+        const user = await queryOne<{
+            id: string;
+            email: string;
+            full_name: string;
+            username: string;
+        }>(`SELECT u.id, u.email, u.username, m.full_name
+       FROM users u
+       JOIN members m ON m.id = u.member_id
+       WHERE lower(u.username) = lower($1) OR lower(u.email) = lower($1)`, [identifier]);
+
+        // The reply never varies. Whether or not the account exists, the caller
+        // is told the same thing, so this cannot be used to test addresses.
+        if (user) {
+            const token = await withTransaction((client) => issueResetToken(client, user.id));
+            const url = `${env.PUBLIC_BASE_URL.replace(/\/+$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+            await sendEmail({
+                to: user.email,
+                toName: user.full_name,
+                ...actionEmail({
+                    subject: 'CMA Changamwe - reset your password',
+                    heading: 'Reset your password',
+                    intro: `Someone asked to reset the password for the account "${user.username}". Use the button below to choose a new one.`,
+                    actionLabel: 'Choose a new password',
+                    url,
+                    ttlMinutes: RESET_TTL_MINUTES,
+                    footer: 'If you did not ask for this, ignore this message. Your password has not changed, and nobody can use this link without your email.',
+                }),
+            });
+            logger.info({ userId: user.id }, 'password reset requested');
+        }
+
+        res.status(202).json({
+            status: 'sent',
+            message: 'If that username or email belongs to an account, a reset link is on its way.',
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+
+const resetConfirmSchema = z.object({
+    token: z.string().trim().min(20, 'That reset link is not valid').max(200),
+    password: z.string().min(10, 'Use a password of at least 10 characters').max(1024),
+});
+
+authRouter.post('/password-reset/confirm', otpVerifyLimiter, async (req, res, next) => {
+    try {
+        const { token, password } = resetConfirmSchema.parse(req.body);
+        const passwordHash = await hashPassword(password);
+
+        const outcome = await withTransaction(async (client) => {
+            const claimed = await claimResetToken(client, token);
+            if (!claimed.ok)
+                return claimed;
+
+            const before = await queryOne<{
+                email: string;
+                full_name: string;
+            }>(`SELECT u.email, m.full_name
+           FROM users u JOIN members m ON m.id = u.member_id
+           WHERE u.id = $1 FOR UPDATE OF u`, [claimed.subject.userId], client);
+            if (!before)
+                return { ok: false as const, failure: 'not_found' as const };
+
+            await query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [claimed.subject.userId, passwordHash], client);
+
+            // Every existing session goes. A reset is how someone recovers an
+            // account they may have lost control of, so nothing may survive it.
+            await query(`UPDATE refresh_tokens SET revoked_at = now()
+         WHERE user_id = $1 AND revoked_at IS NULL`, [claimed.subject.userId], client);
+
+            await writeAudit(client, {
+                entityType: 'user', entityId: claimed.subject.userId, action: 'update',
+                fieldChanged: 'password_hash', oldValue: null, newValue: 'reset by email link',
+            }, { userId: claimed.subject.userId, requestId: 'password-reset', ip: req.ip ?? null });
+
+            return { ok: true as const, email: before.email, fullName: before.full_name };
+        });
+
+        if (!outcome.ok) {
+            if (outcome.failure === 'consumed')
+                throw badRequest('That reset link has already been used. Ask for a new one.');
+            throw badRequest('That reset link has expired or is not valid. Ask for a new one.');
+        }
+
+        await sendEmail({
+            to: outcome.email,
+            toName: outcome.fullName,
+            ...noticeEmail({
+                subject: 'CMA Changamwe - your password was changed',
+                heading: 'Your password was changed',
+                paragraphs: [
+                    'The password on your CMA Changamwe account has just been reset, and every device that was signed in has been signed out.',
+                    'If this was not you, tell the Coordinator straight away.',
+                ],
+            }),
+        });
+
+        res.json({ status: 'reset', message: 'Your password has been changed. You can now sign in.' });
     }
     catch (err) {
         next(err);

@@ -221,5 +221,19 @@ table { border-collapse: collapse; width: 100%; }
 
 .tableScroll { overflow-x: auto; }
 
+/* Standing messages that sit above a section: something needs attention, or
+   something is worth knowing before acting. */
+.notice,
+.noticeWarn {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+.notice { background: var(--navy-050); color: var(--navy-700); border-color: var(--navy-100); }
+.noticeWarn { background: var(--apology-bg); color: var(--apology-fg); border-color: rgb(133 81 8 / 0.22); }
+
 .spin { animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

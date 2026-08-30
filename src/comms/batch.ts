@@ -19,7 +19,7 @@ interface PendingRow {
     member_id: string;
     period: string;
     full_name: string;
-    email: string;
+    email: string | null;
     spirituality_score: string;
     financial_score: string;
     total_score: string;
@@ -43,12 +43,16 @@ export async function sendPendingReports(options: {
         let handled = false;
         try {
             await client.query('BEGIN');
+            // LEFT JOIN, not JOIN. A member enrolled by an officer may have no
+            // account, and an inner join would leave their row pending for ever
+            // while still counting toward `remaining`, so the period could never
+            // finish. They are marked failed below instead, which is visible.
             const claimed = await client.query<PendingRow>(`SELECT s.id, s.member_id, s.period, m.full_name, u.email,
                 s.spirituality_score::text, s.financial_score::text, s.total_score::text,
                 s.attainable_total::text, s.standing, s.breakdown_json
          FROM matrix_scores s
          JOIN members m ON m.id = s.member_id
-         JOIN users u ON u.member_id = m.id
+         LEFT JOIN users u ON u.member_id = m.id
          WHERE s.period = $1 AND s.email_status = 'pending'
          ORDER BY s.id
          FOR UPDATE OF s SKIP LOCKED
@@ -60,6 +64,14 @@ export async function sendPendingReports(options: {
             }
             handled = true;
             attempted += 1;
+
+            if (!row.email) {
+                failed += 1;
+                await client.query(`UPDATE matrix_scores SET email_status = 'failed' WHERE id = $1`, [row.id]);
+                logger.warn({ memberId: row.member_id }, 'no account on this member, so the report has nowhere to go');
+                await client.query('COMMIT');
+                continue;
+            }
             const snapshot: SnapshotForReport = {
                 member_name: row.full_name,
                 period: row.period,

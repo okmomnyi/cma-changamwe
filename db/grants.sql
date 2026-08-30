@@ -37,6 +37,19 @@ BEGIN
   EXECUTE format('GRANT SELECT, INSERT ON TABLE matrix_scores TO %I', app_role);
   EXECUTE format('GRANT UPDATE (email_status, sent_at) ON TABLE matrix_scores TO %I', app_role);
 
+  -- Welfare claims are a payment record. A claim can be decided and paid, and
+  -- it can be cancelled, but it can never be removed or have its subject,
+  -- amount or the standing it relied on rewritten after the fact.
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'welfare_claims') THEN
+    EXECUTE format('REVOKE ALL ON TABLE welfare_claims FROM %I', app_role);
+    EXECUTE format('GRANT SELECT, INSERT ON TABLE welfare_claims TO %I', app_role);
+    EXECUTE format(
+      'GRANT UPDATE (status, decided_at, decided_by, decision_note, '
+      || 'paid_at, paid_by, payment_reference, matrix_score_id, period, '
+      || 'standing_relied_on, score_relied_on, updated_at) '
+      || 'ON TABLE welfare_claims TO %I', app_role);
+  END IF;
+
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'pgmigrations') THEN
     EXECUTE format('REVOKE ALL ON TABLE pgmigrations FROM %I', app_role);
     EXECUTE format('GRANT SELECT ON TABLE pgmigrations TO %I', app_role);

@@ -43,3 +43,28 @@
 }
 
 .actions { display: flex; justify-content: flex-end; gap: var(--space-3); flex-wrap: wrap; }
+
+.ordinals {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+}
+.ordinals legend { padding: 0 var(--space-2); }
+
+.ordinalRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.ordinal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.ordinal input { accent-color: var(--navy-700); cursor: pointer; }

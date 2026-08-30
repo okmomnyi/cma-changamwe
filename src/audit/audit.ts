@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { query } from '../db/pool.js';
-export type AuditEntityType = 'member' | 'attendance' | 'contribution' | 'office' | 'user' | 'event';
+export type AuditEntityType = 'member' | 'attendance' | 'contribution' | 'office' | 'user' | 'event' | 'welfare_claim';
 export type AuditAction = 'create' | 'update' | 'delete';
 export interface AuditActor {
     userId: string | null;

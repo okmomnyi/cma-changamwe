@@ -17,7 +17,10 @@
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
     "web:install": "npm --prefix web install",
     "web:dev": "npm --prefix web run dev",
-    "web:build": "npm --prefix web run build"
+    "web:build": "npm --prefix web run build",
+    "backup:run": "tsx scripts/run-backup.ts",
+    "backup:verify": "tsx scripts/verify-backups.ts",
+    "backup:restore": "tsx scripts/restore-backup.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1113.0",

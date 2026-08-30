@@ -9,15 +9,18 @@ export function todayNairobi(): string {
 export function currentPeriod(): string {
     return nowNairobi().toFormat('yyyy-MM');
 }
+export function previousPeriod(): string {
+    return nowNairobi().minus({ months: 1 }).toFormat('yyyy-MM');
+}
 export function monthStart(isoDate: string): string {
     return DateTime.fromISO(isoDate, { zone: NAIROBI }).startOf('month').toISODate()!;
 }
-export function rollingWindowStart(months: number, end: string = todayNairobi()): string {
-    return DateTime.fromISO(end, { zone: NAIROBI })
-        .minus({ months })
-        .plus({ days: 1 })
-        .toISODate()!;
+/** The last calendar day of a `yyyy-MM` period, which is what a snapshot for
+ *  that period must be evaluated as of. */
+export function periodEnd(period: string): string {
+    return DateTime.fromISO(`${period}-01`, { zone: NAIROBI }).endOf('month').toISODate()!;
 }
-export function currentAffiliationYear(): number {
-    return nowNairobi().year;
+/** True once a period is wholly in the past, so a snapshot of it is final. */
+export function periodHasEnded(period: string): boolean {
+    return periodEnd(period) < todayNairobi();
 }

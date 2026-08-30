@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query, queryOne, withTransaction } from '../db/pool.js';
 import { requireAuth, principalOf } from '../middleware/auth.js';
-import { badRequest, notFound, tooManyRequests, unauthorized } from '../util/errors.js';
+import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../util/errors.js';
 import { evaluateMatrixForMember } from '../matrix/engine.js';
-import { verifyPassword } from '../auth/password.js';
+import { verifyPassword, hashPassword } from '../auth/password.js';
+import { hashToken } from '../auth/tokens.js';
 import { issueEmailChangeOtp, verifyOtp, OTP_TTL_MINUTES } from '../auth/otp.js';
 import { sendEmail } from '../email/mailer.js';
 import { otpEmail, noticeEmail } from '../email/templates.js';
@@ -132,6 +133,91 @@ meRouter.get('/matrix/history', async (req, res, next) => {
         next(err);
     }
 });
+meRouter.get('/welfare', async (req, res, next) => {
+    try {
+        const { memberId } = principalOf(req);
+        const rows = await query(`SELECT c.id, c.support_type, c.amount, c.status, c.period,
+              c.subject_name, c.requested_at, c.decided_at, c.paid_at,
+              e.title AS event_title, ch.name AS child_name
+       FROM welfare_claims c
+       LEFT JOIN events e ON e.id = c.event_id
+       LEFT JOIN children ch ON ch.id = c.child_id
+       WHERE c.member_id = $1
+       ORDER BY c.requested_at DESC
+       LIMIT 50`, [memberId]);
+        const paid = await queryOne<{
+            total: string;
+        }>(`SELECT COALESCE(sum(amount), 0)::text AS total FROM welfare_claims
+       WHERE member_id = $1 AND status = 'paid'`, [memberId]);
+        res.json({ claims: rows.rows, paid_total: paid?.total ?? '0' });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+const passwordChangeSchema = z.object({
+    current_password: z.string().min(1, 'Enter your current password').max(1024),
+    new_password: z.string().min(10, 'Use a password of at least 10 characters').max(1024),
+});
+
+meRouter.post('/password', otpVerifyLimiter, async (req, res, next) => {
+    try {
+        const principal = principalOf(req);
+        const { current_password, new_password } = passwordChangeSchema.parse(req.body);
+
+        const user = await queryOne<{
+            password_hash: string;
+            email: string;
+            full_name: string;
+        }>(`SELECT u.password_hash, u.email, m.full_name
+       FROM users u JOIN members m ON m.id = u.member_id
+       WHERE u.id = $1`, [principal.userId]);
+        if (!user)
+            throw unauthorized();
+        if (!(await verifyPassword(user.password_hash, current_password))) {
+            throw unauthorized('That password is not correct.');
+        }
+        if (await verifyPassword(user.password_hash, new_password)) {
+            throw badRequest('That is already your password. Choose a different one.');
+        }
+
+        const passwordHash = await hashPassword(new_password);
+        const cookies = req.cookies as Record<string, string> | undefined;
+        const keeping = cookies?.['cma_refresh'] ? hashToken(cookies['cma_refresh']) : null;
+
+        await withTransaction(async (client) => {
+            await query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [principal.userId, passwordHash], client);
+            // Other devices are signed out. The one making the change keeps its
+            // session, so the member is not thrown back to the sign-in page.
+            await query(`UPDATE refresh_tokens SET revoked_at = now()
+         WHERE user_id = $1 AND revoked_at IS NULL
+           AND ($2::text IS NULL OR token_hash <> $2)`, [principal.userId, keeping], client);
+            await writeAudit(client, {
+                entityType: 'user', entityId: principal.userId, action: 'update',
+                fieldChanged: 'password_hash', oldValue: null, newValue: 'changed by member',
+            }, { userId: principal.userId, requestId: 'password-change', ip: req.ip ?? null });
+        });
+
+        await sendEmail({
+            to: user.email,
+            toName: user.full_name,
+            ...noticeEmail({
+                subject: 'CMA Changamwe - your password was changed',
+                heading: 'Your password was changed',
+                paragraphs: [
+                    'The password on your CMA Changamwe account has just been changed, and any other device that was signed in has been signed out.',
+                    'If this was not you, use the forgot-password link on the sign-in page to take the account back, then tell the Coordinator.',
+                ],
+            }),
+        });
+
+        res.json({ status: 'changed' });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+
 const emailChangeSchema = z.object({
     new_email: z.string().trim().toLowerCase().email('Enter a valid email address').max(320),
     current_password: z.string().min(1, 'Enter your current password').max(1024),
@@ -159,13 +245,24 @@ meRouter.post('/email/change-request', otpSendLimiter, async (req, res, next) =>
             const code = await withTransaction((client) => issueEmailChangeOtp(client, principal.userId, new_email));
             await sendEmail({
                 to: new_email,
-                subject: 'CMA Changamwe - confirm your new email address',
-                text: `Your confirmation code is ${code}.\n\nIt expires in ${OTP_TTL_MINUTES} minutes. If you did not request this, ignore this message.`,
+                ...otpEmail({
+                    subject: 'CMA Changamwe - confirm your new email address',
+                    heading: 'Confirm your new email address',
+                    intro: 'Enter this code in the portal to move your account to this address.',
+                    code,
+                    ttlMinutes: OTP_TTL_MINUTES,
+                }),
             });
             await sendEmail({
                 to: user.email,
-                subject: 'CMA Changamwe - a change to your email address was requested',
-                text: `Someone asked to change the email address on your CMA Changamwe account to ${new_email}.\n\nIf this was not you, sign in and change your password immediately, then tell the Coordinator.`,
+                ...noticeEmail({
+                    subject: 'CMA Changamwe - a change to your email address was requested',
+                    heading: 'Someone asked to change your email address',
+                    paragraphs: [
+                        `A request was made to move your CMA Changamwe account to ${new_email}. Nothing has changed yet.`,
+                        'If this was not you, use the forgot-password link on the sign-in page to take the account back, then tell the Coordinator.',
+                    ],
+                }),
             });
         }
         res.status(202).json({
@@ -191,6 +288,13 @@ meRouter.post('/email/confirm', otpVerifyLimiter, async (req, res, next) => {
             const before = await queryOne<{
                 email: string;
             }>(`SELECT email FROM users WHERE id = $1 FOR UPDATE`, [principal.userId], client);
+            // Checked again at the point of writing. The address was free when
+            // the code was sent, and somebody else may have taken it since.
+            const taken = await queryOne<{
+                id: string;
+            }>(`SELECT id FROM users WHERE lower(email) = lower($1) AND id <> $2`, [result.newEmail, principal.userId], client);
+            if (taken)
+                throw conflict('That email address has since been taken. Start the change again with a different one.');
             await query(`UPDATE users SET email = $2, email_verified = true WHERE id = $1`, [principal.userId, result.newEmail], client);
             await writeAudit(client, {
                 entityType: 'user', entityId: principal.userId, action: 'update',

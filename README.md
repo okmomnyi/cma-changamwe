@@ -13,12 +13,14 @@ treated as build requirements rather than polish.
 | Layer | Choice |
 |---|---|
 | Backend | Node.js 22, Express 5, TypeScript (ESM) |
-| Database | PostgreSQL, raw parameterised SQL, no ORM |
+| Database | Neon Postgres, raw parameterised SQL, no ORM |
 | Migrations | node-pg-migrate |
 | Auth | argon2id passwords, JWT access token, rotating refresh token |
 | Frontend | React 19, Next.js 15, CSS Modules |
 | Storage | Cloudflare R2 for member photographs |
 | Email | Brevo |
+| Hosting | One VPS, systemd and Caddy |
+| Backups | Nightly logical export to R2, verified after upload |
 | Timezone | Africa/Nairobi throughout, all timestamps timestamptz |
 
 ## Layout
@@ -26,30 +28,54 @@ treated as build requirements rather than polish.
 ```
 migrations/    database schema
 db/grants.sql  least-privilege grants, re-applied after every migration
+deploy/        systemd units, Caddyfile, deploy script
+shared/        vocabularies both the API and the interface read
 src/
   config/      environment validation
   db/          pool and parameterised query helpers
-  auth/        passwords, tokens, office-derived authorization
-  routes/      auth, member portal, admin, exports, photos, jobs
+  auth/        passwords, tokens, resets, office-derived authorization
+  routes/      auth, member portal, admin, welfare, exports, photos, jobs
   matrix/      the scoring engine
   comms/       monthly report and leadership digest
   media/       R2 presigning
   pdf/         bio-data and report documents
+  backup/      logical export, verification, retention
   jobs/        monthly scheduler
 scripts/       grants and first-administrator bootstrap
-api/           Vercel serverless entry
 web/           Next.js interface
 ```
 
+## One database, two roles
+
+Neon, for development and production alike. There is no local Postgres, no
+Docker container and no separate test database.
+
+Two connection strings, **one database**. What differs is the role:
+
+| | Role | Used by | Can |
+|---|---|---|---|
+| `DATABASE_URL` | `cma_app` | the server | read and write, but not delete audit rows or rewrite a sent score |
+| `MIGRATION_DATABASE_URL` | `neondb_owner` | migrations, backups, restores | change the schema |
+
+That split is the security model. The append-only audit log and the immutable
+snapshots are enforced by what `cma_app` is *not* granted, so the server must
+never hold the owner's connection. Collapsing them into one would quietly
+remove both guarantees.
+
+The two strings also point at different Neon endpoints: `DATABASE_URL` at the
+pooled one, `MIGRATION_DATABASE_URL` at the direct one. That mattered more under
+serverless, where many short-lived connections could exhaust the limit. On the
+VPS the API keeps a pool of ten, so either endpoint works; the pooled one is
+kept because it costs nothing and tolerates running two API processes later.
+
 ## Local setup
 
-Requires Node 22+ and PostgreSQL 17+.
+Requires Node 22+. The database is Neon, so there is nothing to install for it.
 
 ```bash
 npm install
 npm run web:install
-cp .env.example .env
-createdb cma_changamwe
+cp .env.example .env      # then fill in the Neon strings and the secrets
 
 npm run migrate
 npm run dev
@@ -99,6 +125,11 @@ toggles live in `matrix_config`. Only the window evaluators are code.
 | `mandatory` | Affiliation | a fixed denominator of 1 |
 | `frequency` | Weddings | qualifying events in a window, and who paid toward them |
 
+Windows and points follow the Matrix table in the orientation document of
+1st August 2026: Weekly mass and Dominica over six months, Seminars, Novena,
+Bereavement and Other over the previous three, Monthly over six months, and
+Affiliation as a mandatory single item.
+
 The formula is `item_score = (count / total) x points`, summed per category:
 60 points spirituality, 40 financial. There is no threshold-met-therefore-full-
 points step. A per-item threshold is a flag for pastoral follow-up, not a score
@@ -112,7 +143,34 @@ UPDATE matrix_config SET value = 'false' WHERE key = 'enforce_category_mins';
 ```
 
 Every denominator is bounded by the date a member joined, so a new member is
-never measured against events held before they arrived.
+never measured against events held before they arrived. A member entered by an
+officer can be given the date they were actually commissioned, so someone who
+joined in 2012 is not measured from the day their record was typed.
+
+Section 6 sets an amount against most obligations, and
+`contribution_expected_amounts` holds them. A contribution below the amount for
+its category does not satisfy that occurrence. Categories absent from the map
+carry no floor, which is right for sick visitation (*toa ndugu*) and Archbishop
+support, both given as one is able.
+
+### Decisions the committee owns, not the code
+
+Three settings change who qualifies for money and are not written in the
+by-laws. They ship on, and the committee should record a decision either way:
+
+- `rescale_thresholds` shrinks the thresholds in proportion to how many items a
+  member could actually attempt, so an unheld event does not penalise them.
+- `min_attainable` introduces a fourth standing, `insufficient_history`, below
+  70 attainable points.
+- `admin_offices` decides which sitting parish offices carry administrative
+  access. It holds Coordinator, Treasurer and Secretary.
+
+Each is one row:
+
+```sql
+UPDATE matrix_config SET value = 'false' WHERE key = 'rescale_thresholds';
+UPDATE matrix_config SET value = '["coordinator","treasurer"]' WHERE key = 'admin_offices';
+```
 
 ### Live score against snapshot
 
@@ -120,6 +178,64 @@ The live score is recalculated from current records on every request and is
 never cached. A monthly snapshot in `matrix_scores` is what gets emailed, and is
 immutable: the application role holds no UPDATE on the score columns, so a
 report that has been sent cannot be rewritten.
+
+## One source for the shared vocabularies
+
+`shared/vocabulary.ts` holds the lists that both sides of the wire have to
+agree on: event types, contribution categories, welfare support types,
+attendance statuses and standings. Each of those otherwise exists three times
+over, as a Postgres enum, a Zod validator and a set of form options, and the
+three drift.
+
+The API imports it as `../../shared/vocabulary.js`; the interface imports it as
+`@shared/vocabulary`. The file imports nothing itself, which is what lets one
+project resolving modules as NodeNext and another resolving as a bundler both
+consume it with no build step in between.
+
+`valuesOf` returns the literal union rather than `string`, so a value the form
+offers that the API would reject is a compile error rather than a support call.
+
+The database enum is still the authority. Write the migration first, then widen
+the list.
+
+## Offices and governance
+
+Offices exist at two levels, matching the structure in the orientation
+document. A parish term is the executive; a prayer-house term leads one of the
+six houses. **Only a sitting parish term carries administrative access.** A
+prayer-house coordinator leads that house and has no authority over the parish.
+
+The offices themselves live in `office_types`, one row per office, with
+`parish_scope` and `house_scope` recording where each legitimately sits. The
+handover form reads that table, so the list cannot drift from what the database
+will accept, and an office key that is not an office is refused rather than
+silently created.
+
+Terms run three years to a maximum of two, per section 3.2. Opening a third
+term is refused unless a reason is supplied, which the audit log keeps. The
+offices screen flags a term that has run past its three years.
+
+The last sitting office carrying administrative access cannot be closed on its
+own, because that would lock everyone out. Use the handover, which closes and
+opens in one step.
+
+## Welfare support
+
+The Matrix decides eligibility. `welfare_claims` records the decision and the
+payment, under section 5.3: KES 10,000 pre-wedding, 5,000 wedding gift, 10,000
+sickness advance, 100,000 on the death of a member or spouse, 50,000 for a
+child under 18, 25,000 for a parent.
+
+A decision is bound to the immutable monthly snapshot it relied on, never to
+the live score, so an approval can still be explained a year later. Approving a
+member who was not in good standing requires a reason, and so does approving
+with no snapshot on file. The over-seven-days rule for a sickness advance is a
+database constraint; the under-18 rule for a child is checked against the date
+of birth on the member record.
+
+The application role holds no DELETE on `welfare_claims`, and may update only
+the decision and payment columns. A claim can be withdrawn; it cannot be
+removed, and its amount and subject cannot be rewritten after the fact.
 
 ## Member photographs
 
@@ -168,59 +284,56 @@ restart simply asks for what is still pending.
 Without `BREVO_API_KEY` the mailer does not pretend to succeed. In development
 it logs the message so the flow stays usable; in production it reports failure.
 
-## Deploying to Vercel
+A snapshot is only ever taken for a month that has ended, and is evaluated as
+of that month's last day. Taking one for the current month would freeze a part
+month that could never be corrected, so it is refused.
 
-Two projects, so the browser stays on one origin. That is what lets the refresh
-cookie remain SameSite=Strict with no CORS anywhere.
+A member enrolled by an officer may have no account, and their report has
+nowhere to go. Those rows are marked `failed` rather than left pending, so a
+period can still finish. Failed reports are counted on the Matrix screen and
+can be put back in the queue from there.
+
+## Deploying
+
+Two Node processes behind Caddy on one VPS. Caddy terminates TLS and routes
+`/api/*` to the API and everything else to Next.js, so the browser only ever
+sees one origin. That is what lets the refresh cookie stay `SameSite=Strict`
+with no CORS anywhere.
 
 ```
-browser -> cma-web (Next.js) --rewrite--> cma-api (Express function) -> Postgres
+Caddy :443  ->  /api/*  cma-api :3000  ->  Neon, R2
+            ->  /*      cma-web :3001
 ```
 
-cma-api: root directory is the repository root, framework "Other".
+`deploy/` holds the systemd units, the Caddyfile and a deploy script;
+`deploy/README.md` has the steps. On the VPS five values differ from local:
 
 ```bash
 NODE_ENV=production
-SERVERLESS=true
-DATABASE_URL=<pooled connection string>
-MIGRATION_DATABASE_URL=<direct connection string>
-JWT_SECRET=<48 random bytes, base64>
-CRON_SECRET=<32 random bytes, hex>
 SECURE_COOKIES=true
 TRUST_PROXY=true
-PUBLIC_BASE_URL=https://<web domain>
+PUBLIC_BASE_URL=https://<domain>
+ALLOW_DEMO_LOGIN=false
 ```
 
-cma-web: root directory `web`, framework Next.js, one variable:
+### Scheduled work
+
+`SERVERLESS=false`, so the long-lived API process runs both jobs from its own
+timer, checking every fifteen minutes. No external cron is needed.
+
+| Nairobi | Does |
+|---|---|
+| from 02:00 | Off-site backup, verify, prune. Skipped once one is verified for the day. |
+| 06:00 to 20:00 | Monthly snapshots on the 1st, the leadership digest, one report batch a day. |
+
+Both are idempotent, so a restart mid-run costs nothing. The same work is also
+reachable over HTTP with `CRON_SECRET` as a bearer token, if you would rather
+drive it from system cron:
 
 ```bash
-API_ORIGIN=https://<api domain>
+curl -X POST https://<domain>/api/jobs/run-backup -H "authorization: Bearer $CRON_SECRET"
+curl -X POST https://<domain>/api/jobs/run-daily  -H "authorization: Bearer $CRON_SECRET"
 ```
-
-Deploy the API first, then the web project, then add the web domain to the R2
-bucket's CORS origins.
-
-`SERVERLESS=true` matters. It holds one database connection per instance,
-because pooling belongs upstream, and skips the in-process timer, because a
-serverless platform has no process between requests.
-
-Use a pooled connection string for the application and a direct one for
-migrations: schema changes are unreliable through a transaction-mode pooler.
-
-### The scheduled job
-
-`vercel.json` registers a daily cron at 04:00 UTC, which is 07:00 in Nairobi. It
-calls `/api/jobs/run-daily` with `CRON_SECRET` as a bearer token. Everything
-behind it is idempotent, so a duplicate trigger, a missed one, or a retry after
-a timeout all behave.
-
-```bash
-curl -X POST https://<api>/api/jobs/run-daily -H "authorization: Bearer $CRON_SECRET"
-```
-
-Backups are not part of the Vercel deployment; there is no long-lived process to
-run them. Use the hosting provider's own backups, or run `pg_dump` on a schedule
-from somewhere that has one.
 
 ## Security
 
@@ -231,7 +344,18 @@ from somewhere that has one.
 - argon2id passwords. Refresh tokens and one-time codes are stored hashed.
 - The audit log is append-only, enforced both by grants and by database triggers
   that refuse UPDATE, DELETE and TRUNCATE even for the schema owner.
-- Rate limits on sign-in, code sending, code verification and report downloads.
+- Rate limits on sign-in, code sending, code verification, password resets and
+  report downloads.
+- A password reset revokes every session. A password change keeps the session
+  that made it and revokes the rest.
+- The demo sign-in bypass is decided by `ALLOW_DEMO_LOGIN`, not by a data value
+  an administrator could edit.
+- Upload keys are recorded against the draft or member they were issued to, and
+  confirmation checks that record rather than the shape of the key.
+- CSV cells that would be read as a formula are escaped, because member names
+  come from public registration.
 - Secrets are redacted at the logger rather than at each call site.
+- Body-parser failures answer 400, 413 or 415 rather than 500, so a caller's
+  mistake is not reported as a server fault.
 - No member endpoint returns another member's personal data. Directory listings
   mask identity numbers; the full value appears only on a single-member view.

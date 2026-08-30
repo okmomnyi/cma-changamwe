@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, UserPlus } from 'lucide-react';
 import { useResource } from '@/lib/useResource';
 import { EmptyState, ErrorState, LoadingState, PageHeader, Pill } from '@/components/ui';
 import { officeLabel, titleCase } from '@/lib/format';
+import { EnrolMemberForm } from '@/components/EnrolMemberForm';
 interface MemberRow {
     id: string;
     full_name: string;
@@ -34,6 +35,7 @@ export default function MembersPage() {
     const [debounced, setDebounced] = useState('');
     const [house, setHouse] = useState('');
     const [offset, setOffset] = useState(0);
+    const [enrolling, setEnrolling] = useState(false);
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebounced(search.trim());
@@ -49,7 +51,18 @@ export default function MembersPage() {
     const { data, error, loading, reload } = useResource<MembersResponse>(`/api/admin/members?${params}`);
     const houses = useResource<HousesResponse>('/api/admin/prayer-houses');
     return (<>
-      <PageHeader title="Members" description="ID numbers are masked in this list. Open a member to see the full record."/>
+      <PageHeader title="Members" description="ID numbers are masked in this list. Open a member to see the full record."
+        actions={<button type="button" className="btn btnPrimary" onClick={() => setEnrolling((o) => !o)} aria-expanded={enrolling}>
+            <UserPlus size={15} aria-hidden="true"/>
+            {enrolling ? 'Close' : 'Enrol a member'}
+          </button>}/>
+
+      {enrolling ? (<section className="card" style={{ marginBottom: 'var(--space-5)' }} aria-label="Enrol a member">
+          <div className="cardHeader"><h2>Enrol a member</h2></div>
+          <div className="cardBody">
+            <EnrolMemberForm onCreated={reload}/>
+          </div>
+        </section>) : null}
 
       <div className="card cardTight row" style={{ marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
         <div className="field" style={{ flex: '1 1 16rem' }}>

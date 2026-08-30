@@ -10,6 +10,27 @@ export const photosRouter = Router();
 const keySchema = z.object({
     object_key: z.string().min(8).max(200).refine(isValidPhotoKey, 'That is not an upload key issued by this server.'),
 });
+
+/**
+ * Records that this key was handed to this owner. Confirmation checks the
+ * record rather than the shape of the string, so a key belonging to another
+ * draft or member cannot be claimed even if it were somehow known.
+ */
+async function grantUploadKey(objectKey: string, scope: 'members' | 'drafts', ownerId: string, issuedBy: string | null): Promise<void> {
+    await query(`INSERT INTO photo_upload_grants (object_key, scope, owner_id, issued_by, expires_at)
+     VALUES ($1, $2, $3, $4, now() + interval '1 hour')`, [objectKey, scope, ownerId, issuedBy]);
+}
+
+async function claimUploadKey(objectKey: string, scope: 'members' | 'drafts', ownerId: string): Promise<void> {
+    const claimed = await queryOne<{
+        object_key: string;
+    }>(`UPDATE photo_upload_grants SET consumed_at = now()
+     WHERE object_key = $1 AND scope = $2 AND owner_id = $3
+       AND consumed_at IS NULL AND expires_at > now()
+     RETURNING object_key`, [objectKey, scope, ownerId]);
+    if (!claimed)
+        throw badRequest('That upload has expired or was not issued for you. Please choose the photo again.');
+}
 function assertConfigured(): void {
     if (!photosConfigured)
         throw badRequest(photosUnconfiguredReason());
@@ -31,6 +52,7 @@ photosRouter.post('/signup/photo/upload-url', async (req, res, next) => {
         assertConfigured();
         const draftId = await draftIdFrom(req);
         const key = newPhotoKey('drafts', draftId);
+        await grantUploadKey(key, 'drafts', draftId, null);
         const signed = await presignUpload(key);
         res.json({ ...signed, object_key: key, content_type: 'image/jpeg', max_bytes: MAX_PHOTO_BYTES });
     }
@@ -43,6 +65,7 @@ photosRouter.post('/signup/photo/confirm', async (req, res, next) => {
         assertConfigured();
         const draftId = await draftIdFrom(req);
         const { object_key } = keySchema.parse(req.body);
+        await claimUploadKey(object_key, 'drafts', draftId);
         const uploaded = await verifyUploaded(object_key);
         const previous = await queryOne<{
             object_key: string;
@@ -129,6 +152,7 @@ photosRouter.post('/admin/members/:id/photo/upload-url', requireAuth, requireAdm
         if (!member)
             throw notFound('That member could not be found.');
         const key = newPhotoKey('members', id);
+        await grantUploadKey(key, 'members', id, principalOf(req).userId);
         const signed = await presignUpload(key);
         res.json({ ...signed, object_key: key, content_type: 'image/jpeg', max_bytes: MAX_PHOTO_BYTES });
     }
@@ -142,6 +166,7 @@ photosRouter.post('/admin/members/:id/photo/confirm', requireAuth, requireAdmin,
         const id = z.string().uuid().parse(req.params.id);
         const { object_key } = keySchema.parse(req.body);
         const principal = principalOf(req);
+        await claimUploadKey(object_key, 'members', id);
         const uploaded = await verifyUploaded(object_key);
         const previous = await withTransaction(async (client) => {
             const member = await queryOne<{

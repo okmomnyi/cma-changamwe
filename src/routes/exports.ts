@@ -140,7 +140,7 @@ exportsRouter.get('/me/matrix.pdf', reportDownloadLimiter, async (req, res, next
         next(err);
     }
 });
-exportsRouter.get('/admin/members/:id/biodata.pdf', requireAdmin, async (req, res, next) => {
+exportsRouter.get('/admin/members/:id/biodata.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const id = z.string().uuid().parse(req.params.id);
         const data = await biodataFor(id);
@@ -151,7 +151,7 @@ exportsRouter.get('/admin/members/:id/biodata.pdf', requireAdmin, async (req, re
         next(err);
     }
 });
-exportsRouter.get('/admin/members/:id/matrix.pdf', requireAdmin, async (req, res, next) => {
+exportsRouter.get('/admin/members/:id/matrix.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const id = z.string().uuid().parse(req.params.id);
         const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional().parse(req.query.period);
@@ -166,7 +166,13 @@ exportsRouter.get('/admin/members/:id/matrix.pdf', requireAdmin, async (req, res
 function csvCell(input: unknown): string {
     if (input === null || input === undefined)
         return '';
-    const text = String(input);
+    let text = String(input);
+    // Member names come from public registration. A spreadsheet treats a cell
+    // opening with any of these as a formula and runs it, so the value is
+    // pushed behind an apostrophe and read back as the text it always was.
+    // A plain number is left alone, so amounts and years still calculate.
+    if (/^[=+\-@\t\r]/.test(text) && !/^-?\d+(\.\d+)?$/.test(text))
+        text = `'${text}`;
     return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 function csvRows(rows: Array<Record<string, unknown>>, columns: string[]): string {
@@ -181,7 +187,7 @@ function sendCsv(res: Parameters<Parameters<typeof exportsRouter.get>[1]>[1], cs
     res.setHeader('cache-control', 'private, no-store');
     res.end(csv);
 }
-exportsRouter.get('/admin/exports/roster.csv', requireAdmin, async (_req, res, next) => {
+exportsRouter.get('/admin/exports/roster.csv', requireAdmin, reportDownloadLimiter, async (_req, res, next) => {
     try {
         const rows = await query(`SELECT m.full_name, m.year_of_birth, m.id_or_passport_no, m.mobile_no,
               ph.name AS prayer_house, m.jumuiya, m.home_parish_diocese,
@@ -213,7 +219,7 @@ exportsRouter.get('/admin/exports/roster.csv', requireAdmin, async (_req, res, n
         next(err);
     }
 });
-exportsRouter.get('/admin/exports/matrix.csv', requireAdmin, async (req, res, next) => {
+exportsRouter.get('/admin/exports/matrix.csv', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
             .parse(req.query.period) ?? currentPeriod();
@@ -239,7 +245,7 @@ exportsRouter.get('/admin/exports/matrix.csv', requireAdmin, async (req, res, ne
         next(err);
     }
 });
-exportsRouter.get('/admin/exports/contributions.csv', requireAdmin, async (req, res, next) => {
+exportsRouter.get('/admin/exports/contributions.csv', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const filters = z.object({
             from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

@@ -24,6 +24,24 @@ function categoriesFor(rule: MatrixRule, config: MatrixConfig): string[] {
     }
     return [];
 }
+/**
+ * By-laws section 6 sets an amount against most obligations. A category absent
+ * from this map carries no floor, which is right for sick visitation (toa
+ * ndugu) and Archbishop support, both of which are given as one is able.
+ */
+function expectedAmounts(config: MatrixConfig): Record<string, number> {
+    const raw = config.raw['contribution_expected_amounts'];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+        return {};
+    const out: Record<string, number> = {};
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        const amount = typeof value === 'number' ? value : Number(value);
+        if (Number.isFinite(amount) && amount > 0)
+            out[key] = amount;
+    }
+    return out;
+}
+
 function rollingStart(months: number, asOf: string): string {
     return DateTime.fromISO(asOf, { zone: NAIROBI }).minus({ months }).plus({ days: 1 }).toISODate()!;
 }
@@ -188,22 +206,36 @@ async function contributionLastNOccurrences(ctx: EvalContext): Promise<Tally[]> 
         member_id: string;
         count: string;
         total: string;
-    }>(`SELECT m.id AS member_id,
+    }>(`WITH expected AS (
+       SELECT key AS category, value::numeric AS amount
+       FROM jsonb_each_text($5::jsonb) AS e(key, value)
+     )
+     SELECT m.id AS member_id,
             COALESCE(t.total, 0)::text AS total,
             COALESCE(t.count, 0)::text AS count
      FROM members m
      LEFT JOIN LATERAL (
        SELECT count(*) AS total,
-              count(*) FILTER (WHERE EXISTS (
-                SELECT 1 FROM contributions c2
+              -- Satisfied means the member actually paid, and paid at least
+              -- what the by-laws set for that occurrence. Where no amount is
+              -- configured, the required amount is 0 and any payment counts.
+              count(*) FILTER (WHERE (
+                SELECT COALESCE(sum(c2.amount), 0) FROM contributions c2
                 WHERE c2.member_id = m.id
                   AND c2.category = ANY($2::contribution_category[])
                   AND COALESCE(c2.event_id::text, c2.date::text) = o.occurrence_key
-              )) AS count
+              ) > 0 AND (
+                SELECT COALESCE(sum(c2.amount), 0) FROM contributions c2
+                WHERE c2.member_id = m.id
+                  AND c2.category = ANY($2::contribution_category[])
+                  AND COALESCE(c2.event_id::text, c2.date::text) = o.occurrence_key
+              ) >= o.required) AS count
        FROM (
          SELECT COALESCE(c.event_id::text, c.date::text) AS occurrence_key,
-                max(c.date) AS occurred_on
+                max(c.date) AS occurred_on,
+                COALESCE(min(x.amount), 0) AS required
          FROM contributions c
+         LEFT JOIN expected x ON x.category = c.category::text
          WHERE c.category = ANY($2::contribution_category[])
            AND c.date <= $3::date
            AND c.date >= ${JOINED}
@@ -212,7 +244,8 @@ async function contributionLastNOccurrences(ctx: EvalContext): Promise<Tally[]> 
          LIMIT $4
        ) o
      ) t ON true
-     WHERE m.id = ANY($1::uuid[])`, [ctx.memberIds, categories, ctx.asOf, limit], ctx.client);
+     WHERE m.id = ANY($1::uuid[])`,
+    [ctx.memberIds, categories, ctx.asOf, limit, JSON.stringify(expectedAmounts(ctx.config))], ctx.client);
     return rows(result);
 }
 async function contributionFrequency(ctx: EvalContext): Promise<Tally[]> {
@@ -221,6 +254,10 @@ async function contributionFrequency(ctx: EvalContext): Promise<Tally[]> {
     const eventType = String(filter.occurrence_event_type ?? 'wedding');
     const months = ctx.rule.window_value ?? ctx.config.weddings_window_months;
     const start = rollingStart(months, ctx.asOf);
+    // The lowest amount configured across the categories this rule draws on.
+    const amounts = expectedAmounts(ctx.config);
+    const configured = categories.map((c) => amounts[c]).filter((a): a is number => typeof a === 'number');
+    const weddingFloor = configured.length > 0 ? Math.min(...configured) : 0;
     const result = await query<{
         member_id: string;
         count: string;
@@ -231,16 +268,22 @@ async function contributionFrequency(ctx: EvalContext): Promise<Tally[]> {
      )
      SELECT m.id AS member_id,
             count(o.id)::text AS total,
-            count(o.id) FILTER (WHERE EXISTS (
-              SELECT 1 FROM contributions c
+            count(o.id) FILTER (WHERE (
+              SELECT COALESCE(sum(c.amount), 0) FROM contributions c
               WHERE c.member_id = m.id
                 AND c.category = ANY($2::contribution_category[])
                 AND c.event_id = o.id
-            ))::text AS count
+            ) > 0 AND (
+              SELECT COALESCE(sum(c.amount), 0) FROM contributions c
+              WHERE c.member_id = m.id
+                AND c.category = ANY($2::contribution_category[])
+                AND c.event_id = o.id
+            ) >= $6::numeric)::text AS count
      FROM members m
      LEFT JOIN occurrences o ON o.date >= ${JOINED}
      WHERE m.id = ANY($1::uuid[])
-     GROUP BY m.id`, [ctx.memberIds, categories, start, eventType, ctx.asOf], ctx.client);
+     GROUP BY m.id`,
+    [ctx.memberIds, categories, start, eventType, ctx.asOf, weddingFloor], ctx.client);
     return rows(result);
 }
 export async function evaluateRule(rule: MatrixRule, config: MatrixConfig, memberIds: string[], options: {

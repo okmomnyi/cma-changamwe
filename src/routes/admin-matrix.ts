@@ -5,8 +5,9 @@ import { evaluateMatrix, evaluateMatrixForMember } from '../matrix/engine.js';
 import { writeSnapshots } from '../matrix/snapshot.js';
 import { loadMatrixRules } from '../matrix/rules.js';
 import { loadMatrixConfig } from '../matrix/config.js';
-import { currentPeriod } from '../util/time.js';
-import { notFound } from '../util/errors.js';
+import { requeueFailed } from '../comms/batch.js';
+import { currentPeriod, periodEnd, periodHasEnded, previousPeriod } from '../util/time.js';
+import { badRequest, notFound } from '../util/errors.js';
 export const adminMatrixRouter = Router();
 const leaderboardQuery = z.object({
     prayer_house_id: z.string().uuid().optional(),
@@ -96,8 +97,31 @@ const snapshotSchema = z.object({
 adminMatrixRouter.post('/matrix/snapshots', async (req, res, next) => {
     try {
         const { period } = snapshotSchema.parse(req.body ?? {});
-        const summary = await writeSnapshots(period ?? currentPeriod());
+        const target = period ?? previousPeriod();
+
+        // A snapshot is immutable once written, so it has to be evaluated as of
+        // the period it belongs to. Writing today's figures under an earlier
+        // month would be permanent and wrong.
+        if (!periodHasEnded(target)) {
+            throw badRequest(
+                `${target} has not finished yet, so its snapshot would be incomplete and could never be corrected. `
+                + 'Use the leaderboard for live figures, and take the snapshot once the month has ended.',
+            );
+        }
+
+        const summary = await writeSnapshots(target, periodEnd(target));
         res.status(201).json(summary);
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminMatrixRouter.post('/matrix/snapshots/requeue', async (req, res, next) => {
+    try {
+        const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+            .parse((req.body ?? {}).period ?? req.query.period);
+        const requeued = await requeueFailed(period);
+        res.json({ status: 'requeued', period, requeued });
     }
     catch (err) {
         next(err);
@@ -105,8 +129,10 @@ adminMatrixRouter.post('/matrix/snapshots', async (req, res, next) => {
 });
 adminMatrixRouter.get('/matrix/snapshots', async (req, res, next) => {
     try {
+        // Snapshots are only ever written for a period that has ended, so the
+        // last completed month is the one an officer means by default.
         const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
-            .parse(req.query.period) ?? currentPeriod();
+            .parse(req.query.period) ?? previousPeriod();
         const rows = await query(`SELECT s.id, s.member_id, m.full_name, s.spirituality_score, s.financial_score,
               s.total_score, s.attainable_total, s.standing, s.generated_at,
               s.email_status, s.sent_at
@@ -118,10 +144,18 @@ adminMatrixRouter.get('/matrix/snapshots', async (req, res, next) => {
             standing: string;
             n: string;
         }>(`SELECT standing, count(*)::text AS n FROM matrix_scores WHERE period = $1 GROUP BY standing`, [period]);
+        // A report that failed to send is invisible unless it is counted here.
+        const delivery = await query<{
+            email_status: string;
+            n: string;
+        }>(`SELECT email_status, count(*)::text AS n FROM matrix_scores
+       WHERE period = $1 GROUP BY email_status`, [period]);
         res.json({
             period,
             snapshots: rows.rows,
             by_standing: Object.fromEntries(summary.rows.map((r) => [r.standing, Number(r.n)])),
+            by_email_status: Object.fromEntries(delivery.rows.map((r) => [r.email_status, Number(r.n)])),
+            latest_complete_period: previousPeriod(),
         });
     }
     catch (err) {

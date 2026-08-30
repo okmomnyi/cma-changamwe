@@ -5,19 +5,15 @@ import { CalendarPlus } from 'lucide-react';
 import { api } from '@/lib/api';
 import styles from './Forms.module.css';
 import { summariseError } from '@/lib/formErrors';
-const TYPES = [
-    { value: 'mass', label: 'Mass' },
-    { value: 'dominica', label: 'Dominica' },
-    { value: 'novena', label: 'Novena' },
-    { value: 'seminar', label: 'Seminar' },
-    { value: 'prayer_house_meeting', label: 'Prayer house meeting' },
-    { value: 'pilgrimage', label: 'Pilgrimage' },
-    { value: 'national_prayer_day', label: 'National Prayer Day' },
-    { value: 'family_day', label: 'Family Day' },
-    { value: 'wedding', label: 'Wedding' },
-    { value: 'agm', label: 'AGM' },
-    { value: 'special_general_meeting', label: 'Special General Meeting' },
-    { value: 'other', label: 'Other' },
+import { EVENT_TYPES } from '@shared/vocabulary';
+const TYPES = EVENT_TYPES;
+
+const ORDINALS = [
+    { value: 1, label: '1st' },
+    { value: 2, label: '2nd' },
+    { value: 3, label: '3rd' },
+    { value: 4, label: '4th' },
+    { value: 5, label: 'Last' },
 ];
 const MATRIX_KEYS = [
     { value: '', label: 'Does not feed the Matrix' },
@@ -38,6 +34,8 @@ export function NewEventForm({ onCreated }: {
     const [date, setDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [weekday, setWeekday] = useState('5');
+    const [pattern, setPattern] = useState<'weekly' | 'monthly'>('weekly');
+    const [ordinals, setOrdinals] = useState<number[]>([2, 4]);
     const [days, setDays] = useState('9');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -65,6 +63,8 @@ export function NewEventForm({ onCreated }: {
                     body: JSON.stringify({
                         type, subtype: subtype || null, matrix_item_key: matrixKey || null,
                         title, start_date: date, end_date: endDate, weekday: Number(weekday),
+                        pattern,
+                        ...(pattern === 'monthly' ? { ordinals } : {}),
                     }),
                 });
                 setNotice(`Created ${result.count} events.`);
@@ -152,7 +152,38 @@ export function NewEventForm({ onCreated }: {
                 {WEEKDAYS.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}
               </select>
             </div>
+            <div className="field">
+              <label className="fieldLabel" htmlFor="event-pattern">How often</label>
+              <select id="event-pattern" className="input" value={pattern}
+                onChange={(e) => setPattern(e.target.value as 'weekly' | 'monthly')}
+                aria-describedby="pattern-hint">
+                <option value="weekly">Every week</option>
+                <option value="monthly">Chosen weeks of the month</option>
+              </select>
+              <p id="pattern-hint" className="subtle small">
+                {pattern === 'weekly'
+                  ? 'For the weekly mass, held every Wednesday or Friday.'
+                  : 'For prayer house meetings on the 2nd and 4th Monday, Dominica on the 1st Sunday, or the AGM on the 3rd Sunday.'}
+              </p>
+            </div>
           </>) : null}
+
+        {mode === 'weekly' && pattern === 'monthly' ? (
+          <fieldset className={styles.ordinals}>
+            <legend className="fieldLabel">Which weeks</legend>
+            <div className={styles.ordinalRow}>
+              {ORDINALS.map((o) => (
+                <label key={o.value} className={styles.ordinal}>
+                  <input type="checkbox" checked={ordinals.includes(o.value)}
+                    onChange={(e) => setOrdinals((current) => (e.target.checked
+                      ? [...current, o.value].sort((a, b) => a - b)
+                      : current.filter((v) => v !== o.value)))}/>
+                  {o.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
 
         {mode === 'novena' ? (<div className="field">
             <label className="fieldLabel" htmlFor="novena-days">Number of days</label>
@@ -163,7 +194,9 @@ export function NewEventForm({ onCreated }: {
           </div>) : null}
       </div>
 
-      <button type="submit" className="btn btnPrimary" disabled={busy || !title.trim() || !date}>
+      <button type="submit" className="btn btnPrimary"
+        disabled={busy || !title.trim() || !date
+          || (mode === 'weekly' && pattern === 'monthly' && ordinals.length === 0)}>
         <CalendarPlus size={15} aria-hidden="true"/>
         {busy ? 'Creating...' : 'Create'}
       </button>

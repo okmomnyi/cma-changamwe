@@ -9,11 +9,8 @@ import { contributionLabel, formatDate, formatKes, formatMonth } from '@/lib/for
 import styles from '@/components/Forms.module.css';
 import { DownloadButton } from '@/components/DownloadButton';
 import { summariseError } from '@/lib/formErrors';
-const CATEGORIES = [
-    'diocese_affiliation', 'deanery_affiliation', 'monthly_subscription', 'seminar_fee',
-    'wedding', 'benevolent_member_spouse', 'benevolent_child', 'benevolent_parent',
-    'sick_admission', 'sick_visitation', 'archbishop_support', 'other',
-];
+import { CONTRIBUTION_CATEGORIES } from '@shared/vocabulary';
+const CATEGORIES = CONTRIBUTION_CATEGORIES;
 interface Row {
     id: string;
     member_id: string;
@@ -108,8 +105,16 @@ export default function ContributionsPage() {
                 <div className="field">
                   <label className="fieldLabel" htmlFor="category">Category</label>
                   <select id="category" className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
-                    {CATEGORIES.map((c) => (<option key={c} value={c}>{contributionLabel(c)}</option>))}
+                    {CATEGORIES.map((c) => (<option key={c.value} value={c.value}>
+                      {c.scored ? c.label : `${c.label} (does not feed the Matrix)`}
+                    </option>))}
                   </select>
+                  {category === 'other' ? (
+                    <p className="subtle small">
+                      Recorded and shown in the member history, but scored by no Matrix item. Use
+                      a named category wherever one fits, so the payment counts.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="field">

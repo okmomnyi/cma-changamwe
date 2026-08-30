@@ -43,7 +43,20 @@ signupRouter.post('/start', otpSendLimiter, async (req, res, next) => {
         const existingUser = await queryOne<{
             id: string;
         }>(`SELECT id FROM users WHERE lower(email) = $1`, [email]);
+
+        // The token is issued either way, so the reply looks identical whether
+        // or not the address is already a member. An existing account gets an
+        // explanatory email instead of a code, and the draft it holds cannot be
+        // completed, because /complete refuses a duplicate email at the end.
+        const token = randomBytes(32).toString('base64url');
+
         if (existingUser) {
+            await withTransaction(async (client) => {
+                await query(`UPDATE signup_drafts SET expires_at = now()
+           WHERE lower(email) = $1 AND promoted_at IS NULL AND expires_at > now()`, [email], client);
+                await query(`INSERT INTO signup_drafts (email, draft_token_hash, data_json, current_step, expires_at)
+           VALUES ($1, $2, '{}'::jsonb, 1, now() + ($3 || ' days')::interval)`, [email, hashToken(token), String(DRAFT_TTL_DAYS)], client);
+            });
             await sendEmail({
                 to: email,
                 ...noticeEmail({
@@ -51,14 +64,18 @@ signupRouter.post('/start', otpSendLimiter, async (req, res, next) => {
                     heading: 'This email already has an account',
                     paragraphs: [
                         'Someone started a registration with this address, but it already belongs to a CMA Changamwe account.',
-                        'If that was you, please sign in instead. If you have forgotten your password, use the "forgot password" option on the sign-in page.',
+                        'If that was you, please sign in instead. If you have forgotten your password, use the forgot-password link on the sign-in page.',
                     ],
                 }),
             });
-            res.status(202).json({ status: 'otp_sent', message: 'Check your email for a 6-digit code.' });
+            res.status(202).json({
+                status: 'otp_sent',
+                draft_token: token,
+                expires_in_days: DRAFT_TTL_DAYS,
+                message: 'Check your email for a 6-digit code.',
+            });
             return;
         }
-        const token = randomBytes(32).toString('base64url');
         const result = await withTransaction(async (client) => {
             await query(`UPDATE signup_drafts SET expires_at = now()
          WHERE lower(email) = $1 AND promoted_at IS NULL AND expires_at > now()`, [email], client);
@@ -231,6 +248,24 @@ signupRouter.post('/complete', loginLimiter, async (req, res, next) => {
             }>(`SELECT id FROM signup_drafts WHERE id = $1 AND promoted_at IS NULL FOR UPDATE`, [draft.id], client);
             if (!stillPending)
                 throw conflict('That registration is already complete. Please sign in.');
+
+            // Checked here rather than at /start, so the reply to a stranger
+            // probing an address gives nothing away. Each is a unique index in
+            // the database; these turn the constraint into a usable message.
+            const emailTaken = await queryOne<{ id: string }>(
+                `SELECT id FROM users WHERE lower(email) = lower($1)`, [draft.email], client);
+            if (emailTaken)
+                throw conflict('That email address already belongs to an account. Please sign in, or use the forgot-password link.');
+
+            const usernameTaken = await queryOne<{ id: string }>(
+                `SELECT id FROM users WHERE lower(username) = lower($1)`, [username], client);
+            if (usernameTaken)
+                throw conflict('That username is already taken. Choose another.');
+
+            const idTaken = await queryOne<{ id: string }>(
+                `SELECT id FROM members WHERE id_or_passport_no = $1`, [form.id_or_passport_no], client);
+            if (idTaken)
+                throw conflict('A member is already registered with that ID or passport number. Speak to the Secretary.');
             const member = await queryOne<{
                 id: string;
             }>(`INSERT INTO members
@@ -274,8 +309,17 @@ signupRouter.post('/complete', loginLimiter, async (req, res, next) => {
         await sendEmail({
             to: draft.email,
             toName: form.full_name,
-            subject: 'CMA Changamwe - your registration is complete',
-            text: `Karibu ${form.full_name},\n\nYour CMA Changamwe registration is complete and your profile is now locked. Sign in with the username "${username}".\n\nTo correct any detail, speak to the Coordinator or Treasurer. Your email address is the only field you can change yourself.`,
+            ...noticeEmail({
+                subject: 'CMA Changamwe - your registration is complete',
+                heading: `Karibu, ${form.full_name}`,
+                paragraphs: [
+                    `Your CMA Changamwe registration is complete and your bio-data is on file. Sign in with the username "${username}".`,
+                    'To correct any detail, speak to the Secretary, the Coordinator or the Treasurer. Your email address and your password are the two things you can change yourself.',
+                ],
+                callout: {
+                    text: 'Completing your bio-data is one of the two conditions checked before your welfare standing can be assessed. The other is your yearly affiliation of KES 1,000.',
+                },
+            }),
         });
         logger.info({ memberId: created.memberId }, 'signup completed');
         res.status(201).json({

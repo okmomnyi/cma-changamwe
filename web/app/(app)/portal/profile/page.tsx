@@ -5,6 +5,7 @@ import { useResource } from '@/lib/useResource';
 import { Detail, DetailGrid, EmptyState, ErrorState, LoadingState, PageHeader, Pill } from '@/components/ui';
 import { formatDate, formatDateTime, officeLabel, titleCase } from '@/lib/format';
 import { EmailChange } from '@/components/EmailChange';
+import { PasswordChange } from '@/components/PasswordChange';
 import { MemberPhoto } from '@/components/MemberPhoto';
 import { useAuth } from '@/lib/auth';
 import { DownloadButton } from '@/components/DownloadButton';
@@ -131,8 +132,9 @@ export default function ProfilePage() {
         
         <section className="card" aria-labelledby="account">
           <div className="cardHeader"><h2 id="account">Account</h2></div>
-          <div className="cardBody">
+          <div className="cardBody" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
             {user ? <EmailChange currentEmail={user.email}/> : null}
+            <PasswordChange/>
           </div>
         </section>
 

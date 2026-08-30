@@ -17,6 +17,6 @@
     "sourceMap": true,
     "declaration": false
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "api/**/*.ts"],
+  "include": ["shared/**/*.ts", "src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "web"]
 }

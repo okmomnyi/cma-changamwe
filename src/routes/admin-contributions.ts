@@ -5,13 +5,10 @@ import { principalOf } from '../middleware/auth.js';
 import { auditFieldChanges, writeAudit, type AuditActor } from '../audit/audit.js';
 import { badRequest, notFound } from '../util/errors.js';
 import { monthStart, todayNairobi } from '../util/time.js';
+import { CONTRIBUTION_CATEGORIES, valuesOf } from '../../shared/vocabulary.js';
 import type { Request } from 'express';
 export const adminContributionsRouter = Router();
-const CATEGORIES = [
-    'diocese_affiliation', 'deanery_affiliation', 'monthly_subscription', 'seminar_fee',
-    'wedding', 'benevolent_member_spouse', 'benevolent_child', 'benevolent_parent',
-    'sick_admission', 'sick_visitation', 'archbishop_support', 'other',
-] as const;
+const CATEGORIES = valuesOf(CONTRIBUTION_CATEGORIES);
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const contributionSchema = z.object({
     member_id: z.string().uuid(),

@@ -33,6 +33,7 @@ interface LayoutParts {
   intro?: string;
   code?: string;
   codeCaption?: string;
+  action?: { label: string; url: string };
   paragraphs?: string[];
   callout?: { text: string; tone?: 'info' | 'warn' };
   signoff?: string;
@@ -55,6 +56,18 @@ function renderHtml(parts: LayoutParts): string {
              <div style="font-family:'Courier New',Courier,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:${NAVY_DARK};">${escape(parts.code)}</div>
            </div>
            ${parts.codeCaption ? `<div style="margin-top:10px;font-size:13px;color:${MUTED};">${escape(parts.codeCaption)}</div>` : ''}
+         </td></tr>
+       </table>`
+    : '';
+
+  const action = parts.action
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 20px;">
+         <tr><td align="center">
+           <a href="${escape(parts.action.url)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:13px 30px;border-radius:8px;font-family:Helvetica,Arial,sans-serif;">${escape(parts.action.label)}</a>
+         </td></tr>
+         <tr><td align="center" style="padding-top:14px;">
+           <div style="font-size:12px;color:${MUTED};line-height:1.6;">Or paste this into your browser:</div>
+           <div style="font-size:12px;color:${NAVY};word-break:break-all;line-height:1.6;">${escape(parts.action.url)}</div>
          </td></tr>
        </table>`
     : '';
@@ -93,7 +106,7 @@ function renderHtml(parts: LayoutParts): string {
         </td></tr>
         <tr><td style="background:${CARD};border-left:1px solid ${BORDER};border-right:1px solid ${BORDER};padding:28px 28px 8px;font-family:Helvetica,Arial,sans-serif;">
           <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;color:${NAVY_DARK};font-family:Helvetica,Arial,sans-serif;">${escape(parts.heading)}</h1>
-          ${intro}${code}${callout}${body}${signoff}
+          ${intro}${code}${action}${callout}${body}${signoff}
         </td></tr>
         <tr><td style="background:${CARD};border:1px solid ${BORDER};border-top:0;border-radius:0 0 12px 12px;padding:18px 28px 24px;font-family:Helvetica,Arial,sans-serif;">
           <div style="border-top:1px solid ${BORDER};padding-top:16px;font-size:12px;line-height:1.6;color:${MUTED};">
@@ -154,6 +167,40 @@ export function noticeEmail(opts: {
       paragraphs: opts.paragraphs,
       callout: opts.callout,
       signoff: opts.signoff,
+    }),
+  };
+}
+
+/** A message whose point is a single link, such as a password reset. */
+export function actionEmail(opts: {
+  subject: string;
+  heading: string;
+  intro: string;
+  actionLabel: string;
+  url: string;
+  ttlMinutes: number;
+  footer?: string;
+}): EmailContent {
+  const footer = opts.footer
+    ?? 'If you did not ask for this, ignore this message. Nothing has changed on your account.';
+  const text = [
+    opts.intro,
+    '',
+    opts.url,
+    '',
+    `This link expires in ${opts.ttlMinutes} minutes and can be used once.`,
+    footer,
+  ].join('\n');
+
+  return {
+    subject: opts.subject,
+    text,
+    html: renderHtml({
+      heading: opts.heading,
+      intro: opts.intro,
+      action: { label: opts.actionLabel, url: opts.url },
+      callout: { text: `This link expires in ${opts.ttlMinutes} minutes and can be used once.` },
+      paragraphs: [footer],
     }),
   };
 }

@@ -130,6 +130,8 @@ export default function SignInPage() {
             </form>
 
             <p className={styles.footNote}>
+              <Link href="/forgot-password">Forgotten your password?</Link>
+              <br/>
               New member? <Link href="/register">Register here</Link>. You can save your progress and
               come back to it.
             </p>

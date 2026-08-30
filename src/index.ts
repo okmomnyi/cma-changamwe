@@ -1,4 +1,4 @@
-process.env.TZ ??= 'Africa/Nairobi';
+import './config/timezone.js';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { closePool } from './db/pool.js';

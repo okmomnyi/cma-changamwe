@@ -3,6 +3,7 @@
 import { useResource } from '@/lib/useResource';
 import { ErrorState, LoadingState, PageHeader, Stat, StatGrid } from '@/components/ui';
 import { formatKes } from '@/lib/format';
+import { BackupPanel } from '@/components/BackupPanel';
 import { DownloadButton } from '@/components/DownloadButton';
 interface SummaryResponse {
     summary: {
@@ -16,6 +17,9 @@ interface SummaryResponse {
         contributions: number;
         contributions_total: string;
         audit_entries: number;
+        welfare_pending: number;
+        welfare_approved_unpaid: number;
+        welfare_paid_total: string;
     };
 }
 export default function AdminOverview() {
@@ -35,8 +39,14 @@ export default function AdminOverview() {
         <Stat label="Events" value={s.events} hint={`${s.scored_events} feed the Matrix`}/>
         <Stat label="Attendance records" value={s.attendance_records.toLocaleString('en-KE')}/>
         <Stat label="Contributions" value={s.contributions.toLocaleString('en-KE')} hint={formatKes(s.contributions_total)}/>
+        <Stat label="Welfare paid" value={formatKes(s.welfare_paid_total)} hint="Section 5.3 support"/>
+        <Stat label="Claims awaiting a decision" value={s.welfare_pending} hint={s.welfare_approved_unpaid > 0 ? `${s.welfare_approved_unpaid} approved, not yet paid` : undefined}/>
         <Stat label="Audit entries" value={s.audit_entries.toLocaleString('en-KE')} hint="Append-only"/>
       </StatGrid>
+
+      <div style={{ marginTop: 'var(--space-5)' }}>
+        <BackupPanel/>
+      </div>
 
       <section className="card" style={{ marginTop: 'var(--space-5)' }} aria-labelledby="exports">
         <div className="cardHeader"><h2 id="exports">Exports</h2></div>

@@ -44,7 +44,7 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
     if (!req.principal)
         return next(unauthorized());
     if (!req.principal.isAdmin) {
-        return next(forbidden('This action is restricted to the Coordinator and Treasurer.'));
+        return next(forbidden('This action is restricted to sitting parish officers who hold administrative access.'));
     }
     next();
 }

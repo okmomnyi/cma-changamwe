@@ -6,6 +6,7 @@ import { useResource } from '@/lib/useResource';
 import { EmptyState, ErrorState, LoadingState, PageHeader, Stat, StatGrid } from '@/components/ui';
 import { StandingBadge } from '@/components/MatrixBreakdown';
 import { DownloadButton } from '@/components/DownloadButton';
+import { SnapshotPanel } from '@/components/SnapshotPanel';
 interface LeaderboardRow {
     member_id: string;
     full_name: string;
@@ -56,6 +57,10 @@ export default function AdminMatrixPage() {
           <Stat label="Not enough history" value={data.summary.insufficient_history ?? 0}/>
           <Stat label="Not eligible" value={data.summary.ineligible_gate ?? 0} hint="Affiliation or profile outstanding"/>
         </StatGrid>) : null}
+
+      <div style={{ margin: 'var(--space-5) 0' }}>
+        <SnapshotPanel/>
+      </div>
 
       <div className="card cardTight row" style={{ margin: 'var(--space-5) 0', flexWrap: 'wrap' }}>
         <div className="field" style={{ flex: '0 1 14rem' }}>

@@ -28,7 +28,7 @@ export async function loadPrincipal(userId: string, client?: Queryable): Promise
        WHERE c.key = 'admin_offices'
      ),
      held AS (
-       SELECT oh.office_key
+       SELECT oh.office_key, oh.scope
        FROM office_holders oh
        JOIN users u ON u.member_id = oh.member_id
        WHERE u.id = $1 AND oh.term_end IS NULL
@@ -40,9 +40,14 @@ export async function loadPrincipal(userId: string, client?: Queryable): Promise
             u.email_verified,
             m.profile_locked,
             (SELECT array_agg(office_key ORDER BY office_key) FROM held) AS offices,
+            -- Scope matters. The governance structure runs parish above prayer
+            -- house, so a house coordinator holds authority over that house and
+            -- not over the parish. Only a sitting parish term confers
+            -- administrative access.
             (SELECT array_agg(office_key ORDER BY office_key)
                FROM held
-               WHERE office_key IN (SELECT office_key FROM admin_cfg)) AS admin_offices
+               WHERE scope = 'parish'
+                 AND office_key IN (SELECT office_key FROM admin_cfg)) AS admin_offices
      FROM users u
      JOIN members m ON m.id = u.member_id
      WHERE u.id = $1`, [userId], client);

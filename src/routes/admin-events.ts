@@ -7,12 +7,10 @@ import { principalOf } from '../middleware/auth.js';
 import { writeAudit, type AuditActor } from '../audit/audit.js';
 import { badRequest, conflict, notFound } from '../util/errors.js';
 import { NAIROBI } from '../util/time.js';
+import { EVENT_TYPES as EVENT_TYPE_VOCAB, valuesOf } from '../../shared/vocabulary.js';
 import type { Request } from 'express';
 export const adminEventsRouter = Router();
-const EVENT_TYPES = [
-    'mass', 'dominica', 'prayer_house_meeting', 'novena', 'seminar', 'pilgrimage',
-    'national_prayer_day', 'family_day', 'wedding', 'agm', 'special_general_meeting', 'other',
-] as const;
+const EVENT_TYPES = valuesOf(EVENT_TYPE_VOCAB);
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const eventSchema = z.object({
     type: z.enum(EVENT_TYPES),
@@ -64,11 +62,52 @@ adminEventsRouter.post('/events', async (req, res, next) => {
         next(err);
     }
 });
+/**
+ * The meeting calendar in the orientation document is not all weekly. Prayer
+ * house meetings fall on the 2nd and 4th Monday, Dominica on the 1st Sunday,
+ * and the AGM on the 3rd Sunday of January. `weekly` covers Friday mass;
+ * `monthly` takes the ordinals those other patterns need.
+ */
 const recurringSchema = eventSchema.omit({ date: true }).extend({
     start_date: isoDate,
     end_date: isoDate,
     weekday: z.coerce.number().int().min(1).max(7),
+    pattern: z.enum(['weekly', 'monthly']).default('weekly'),
+    // Which occurrences of that weekday within each month, 1 to 5. 5 means the
+    // last one, whether the month has four or five.
+    ordinals: z.array(z.coerce.number().int().min(1).max(5)).min(1).max(5).optional(),
 });
+
+function weeklyDates(start: DateTime, end: DateTime, weekday: number): string[] {
+    const dates: string[] = [];
+    let cursor = start.plus({ days: (weekday - start.weekday + 7) % 7 });
+    while (cursor <= end) {
+        dates.push(cursor.toISODate()!);
+        cursor = cursor.plus({ weeks: 1 });
+    }
+    return dates;
+}
+
+function monthlyOrdinalDates(start: DateTime, end: DateTime, weekday: number, ordinals: number[]): string[] {
+    const dates: string[] = [];
+    let month = start.startOf('month');
+    while (month <= end) {
+        const first = month.plus({ days: (weekday - month.weekday + 7) % 7 });
+        const inMonth: DateTime[] = [];
+        for (let cursor = first; cursor.month === month.month; cursor = cursor.plus({ weeks: 1 })) {
+            inMonth.push(cursor);
+        }
+        for (const ordinal of ordinals) {
+            // 5 means the last occurrence in the month, however many there are.
+            const picked = ordinal === 5 ? inMonth[inMonth.length - 1] : inMonth[ordinal - 1];
+            if (picked && picked >= start && picked <= end)
+                dates.push(picked.toISODate()!);
+        }
+        month = month.plus({ months: 1 });
+    }
+    return [...new Set(dates)].sort();
+}
+
 adminEventsRouter.post('/events/recurring', async (req, res, next) => {
     try {
         const body = recurringSchema.parse(req.body);
@@ -80,14 +119,16 @@ adminEventsRouter.post('/events/recurring', async (req, res, next) => {
         if (end.diff(start, 'days').days > 400) {
             throw badRequest('Generate at most about a year of events at a time.');
         }
-        const dates: string[] = [];
-        let cursor = start.plus({ days: (body.weekday - start.weekday + 7) % 7 });
-        while (cursor <= end) {
-            dates.push(cursor.toISODate()!);
-            cursor = cursor.plus({ weeks: 1 });
+        if (body.pattern === 'monthly' && (!body.ordinals || body.ordinals.length === 0)) {
+            throw badRequest('Choose which occurrences in the month to generate, such as the 2nd and the 4th.');
         }
+        const dates = body.pattern === 'monthly'
+            ? monthlyOrdinalDates(start, end, body.weekday, body.ordinals!)
+            : weeklyDates(start, end, body.weekday);
         if (dates.length === 0)
             throw badRequest('That range contains no matching days.');
+        if (dates.length > 120)
+            throw badRequest('That would create more than 120 events. Narrow the range.');
         const actor = actorFor(req, 'event-create-recurring');
         const principal = principalOf(req);
         const ids = await withTransaction(async (client) => {
@@ -102,7 +143,7 @@ adminEventsRouter.post('/events/recurring', async (req, res, next) => {
                 created.push(event!.id);
                 await writeAudit(client, {
                     entityType: 'event', entityId: event!.id, action: 'create',
-                    newValue: { title: body.title, date, matrix_item_key: body.matrix_item_key ?? null, series: 'weekly' },
+                    newValue: { title: body.title, date, matrix_item_key: body.matrix_item_key ?? null, series: body.pattern },
                 }, actor);
             }
             return created;
@@ -257,14 +298,13 @@ adminEventsRouter.put('/events/:id/attendance', async (req, res, next) => {
             }
             return { created, updated, unchanged: entries.length - created - updated, event };
         });
-        const { recalculateForEvent } = await import('../matrix/recalc.js');
-        const recalculated = await recalculateForEvent(id);
+        // Live scores are recomputed on every read and never cached, so there
+        // is nothing to recalculate here. The register is simply saved.
         res.json({
             status: 'saved',
             created: summary.created,
             updated: summary.updated,
             unchanged: summary.unchanged,
-            members_rescored: recalculated,
         });
     }
     catch (err) {

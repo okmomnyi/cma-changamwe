@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpenCheck, CalendarDays, ClipboardList, Coins, Gauge, LogOut, Menu, ScrollText, ShieldCheck, Table2, User, Users, X, } from 'lucide-react';
+import { BookOpenCheck, CalendarDays, ClipboardList, Coins, Gauge, HandCoins, LogOut, Menu, ScrollText, ShieldCheck, Table2, User, Users, X, } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { officeLabel } from '@/lib/format';
 import { LoadingState } from './ui';
@@ -14,6 +14,7 @@ const MEMBER_NAV = [
     { href: '/portal/attendance', label: 'Attendance', icon: ClipboardList },
     { href: '/portal/matoleo', label: 'Matoleo', icon: Coins },
     { href: '/portal/matrix', label: 'Matrix score', icon: BookOpenCheck },
+    { href: '/portal/welfare', label: 'Welfare', icon: HandCoins },
 ];
 const ADMIN_NAV = [
     { href: '/admin', label: 'Overview', icon: Gauge },
@@ -21,6 +22,7 @@ const ADMIN_NAV = [
     { href: '/admin/events', label: 'Programme', icon: CalendarDays },
     { href: '/admin/contributions', label: 'Matoleo', icon: Coins },
     { href: '/admin/matrix', label: 'Matrix', icon: Table2 },
+    { href: '/admin/welfare', label: 'Welfare', icon: HandCoins },
     { href: '/admin/offices', label: 'Offices', icon: ShieldCheck },
     { href: '/admin/audit', label: 'Audit log', icon: ScrollText },
 ];

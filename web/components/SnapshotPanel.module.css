@@ -1,0 +1,46 @@
+.controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.tally {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.tally dt {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.tally dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--navy-800);
+  font-variant-numeric: tabular-nums;
+}
+
+.bad dd { color: var(--absent-fg); }
+
+.error {
+  background: var(--absent-bg);
+  color: var(--absent-fg);
+  border: 1px solid rgb(152 38 42 / 0.2);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}

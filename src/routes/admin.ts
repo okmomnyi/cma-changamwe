@@ -8,6 +8,8 @@ import { adminOfficesRouter } from './admin-offices.js';
 import { adminEventsRouter } from './admin-events.js';
 import { adminContributionsRouter } from './admin-contributions.js';
 import { adminMatrixRouter } from './admin-matrix.js';
+import { adminWelfareRouter } from './admin-welfare.js';
+import { backupStatus } from '../backup/run.js';
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
 adminRouter.use(adminMembersRouter);
@@ -15,6 +17,7 @@ adminRouter.use(adminOfficesRouter);
 adminRouter.use(adminEventsRouter);
 adminRouter.use(adminContributionsRouter);
 adminRouter.use(adminMatrixRouter);
+adminRouter.use(adminWelfareRouter);
 const listQuery = z.object({
     q: z.string().trim().max(120).optional(),
     prayer_house_id: z.string().uuid().optional(),
@@ -100,14 +103,33 @@ adminRouter.get('/prayer-houses', async (_req, res, next) => {
 });
 adminRouter.get('/offices', async (_req, res, next) => {
     try {
-        const rows = await query(`SELECT oh.id, oh.office_key, oh.scope, oh.term_start, oh.term_end,
+        const rows = await query(`WITH term_years AS (
+         SELECT COALESCE((SELECT (value #>> '{}')::int FROM matrix_config WHERE key = 'office_term_years'), 3) AS n
+       )
+       SELECT oh.id, oh.office_key, ot.label AS office_label,
+              oh.scope, oh.term_start, oh.term_end,
+              oh.prayer_house_id,
               m.id AS member_id, m.full_name, ph.name AS prayer_house,
-              (oh.office_key IN (SELECT jsonb_array_elements_text(value)
-                                   FROM matrix_config WHERE key = 'admin_offices')) AS confers_admin
+              -- Only a sitting parish term carries administrative access. A
+              -- prayer-house officer leads that house, not the parish.
+              (oh.scope = 'parish'
+               AND oh.office_key IN (SELECT jsonb_array_elements_text(value)
+                                       FROM matrix_config WHERE key = 'admin_offices')) AS confers_admin,
+              (oh.term_start + ((SELECT n FROM term_years) || ' years')::interval)::date AS term_due_on,
+              (oh.term_end IS NULL
+               AND oh.term_start + ((SELECT n FROM term_years) || ' years')::interval < now()) AS term_overdue,
+              (SELECT count(*) FROM office_holders prior
+                WHERE prior.member_id = oh.member_id
+                  AND prior.office_key = oh.office_key
+                  AND prior.scope = oh.scope
+                  AND prior.prayer_house_id IS NOT DISTINCT FROM oh.prayer_house_id
+                  AND prior.term_end IS NOT NULL)::int AS terms_completed
        FROM office_holders oh
        JOIN members m ON m.id = oh.member_id
+       LEFT JOIN office_types ot ON ot.office_key = oh.office_key
        LEFT JOIN prayer_houses ph ON ph.id = oh.prayer_house_id
-       ORDER BY (oh.term_end IS NOT NULL), oh.office_key, oh.term_start DESC`);
+       ORDER BY (oh.term_end IS NOT NULL), oh.scope, ph.name NULLS FIRST,
+                ot.sort_order NULLS LAST, oh.office_key, oh.term_start DESC`);
         res.json({ offices: rows.rows });
     }
     catch (err) {
@@ -135,7 +157,7 @@ adminRouter.get('/events', async (req, res, next) => {
     }
 });
 const auditQuery = listQuery.extend({
-    entity_type: z.enum(['member', 'attendance', 'contribution', 'office', 'user', 'event']).optional(),
+    entity_type: z.enum(['member', 'attendance', 'contribution', 'office', 'user', 'event', 'welfare_claim']).optional(),
 });
 adminRouter.get('/audit-log', async (req, res, next) => {
     try {
@@ -160,6 +182,25 @@ adminRouter.get('/audit-log', async (req, res, next) => {
         next(err);
     }
 });
+/**
+ * Whether the association is provably recoverable, rather than whether a job
+ * last appeared to run. `stale` is what an alert would key on.
+ */
+adminRouter.get('/backups', async (_req, res, next) => {
+    try {
+        const status = await backupStatus();
+        const recent = await query(`SELECT object_key, status, started_at, finished_at, verified_at,
+              byte_size, row_count, schema_version, duration_ms, error
+       FROM backup_runs
+       ORDER BY started_at DESC
+       LIMIT 20`);
+        res.json({ ...status, recent: recent.rows });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+
 adminRouter.get('/summary', async (_req, res, next) => {
     try {
         const row = await queryOne(`SELECT
@@ -172,7 +213,11 @@ adminRouter.get('/summary', async (_req, res, next) => {
          (SELECT count(*) FROM attendance)::int                                     AS attendance_records,
          (SELECT count(*) FROM contributions)::int                                  AS contributions,
          (SELECT COALESCE(sum(amount), 0)::text FROM contributions)                 AS contributions_total,
-         (SELECT count(*) FROM audit_log)::int                                      AS audit_entries`);
+         (SELECT count(*) FROM audit_log)::int                                      AS audit_entries,
+         (SELECT count(*) FROM welfare_claims WHERE status = 'pending')::int        AS welfare_pending,
+         (SELECT count(*) FROM welfare_claims WHERE status = 'approved')::int       AS welfare_approved_unpaid,
+         (SELECT COALESCE(sum(amount), 0)::text FROM welfare_claims WHERE status = 'paid')
+                                                                                    AS welfare_paid_total`);
         res.json({ summary: row });
     }
     catch (err) {

@@ -1,13 +1,22 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AlertTriangle, Inbox, Loader2, RefreshCw } from 'lucide-react';
 import type { ApiError } from '@/lib/api';
 import styles from './ui.module.css';
+/**
+ * Every screen behind sign-in is a client component and cannot export Next's
+ * `metadata`, so the tab is named here and always matches the heading.
+ */
 export function PageHeader({ title, description, actions, }: {
     title: string;
     description?: string;
     actions?: React.ReactNode;
 }) {
+    useEffect(() => {
+        document.title = `${title} - CMA Changamwe`;
+    }, [title]);
+
     return (<header className={styles.pageHeader}>
       <div>
         <h1>{title}</h1>
