@@ -79,7 +79,7 @@ export default function ContributionsPage() {
     }
     return (<>
       <PageHeader title="Matoleo" description="Contributions recorded against members, by category." actions={<>
-            <DownloadButton url="/api/exports/admin/exports/contributions.csv" filename="cma-changamwe-contributions.csv" label="Export CSV"/>
+            <DownloadButton url="/api/exports/admin/exports/contributions.pdf" filename="cma-changamwe-matoleo.pdf" label="Statement"/>
             <button type="button" className="btn btnPrimary" onClick={() => setAdding((o) => !o)} aria-expanded={adding}>
               <Plus size={15} aria-hidden="true"/>
               {adding ? 'Close' : 'Record a contribution'}

@@ -49,7 +49,7 @@ export default function AdminMatrixPage() {
     const { data, error, loading, reload } = useResource<LeaderboardResponse>(`/api/admin/matrix/leaderboard?${params}`);
     const houses = useResource<HousesResponse>('/api/admin/prayer-houses');
     return (<>
-      <PageHeader title="Matrix" description="Live scores across the association. Figures are recalculated from current records each time this page loads." actions={<DownloadButton url="/api/exports/admin/exports/matrix.csv" filename="cma-changamwe-matrix.csv" label="Export period CSV"/>}/>
+      <PageHeader title="Matrix" description="Live scores across the association. Figures are recalculated from current records each time this page loads." actions={<DownloadButton url="/api/exports/admin/exports/matrix.pdf" filename="cma-changamwe-matrix.pdf" label="Standing document"/>}/>
 
       {data ? (<StatGrid>
           <Stat label="In good standing" value={data.summary.in_good_standing ?? 0}/>

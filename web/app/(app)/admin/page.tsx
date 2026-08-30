@@ -49,19 +49,24 @@ export default function AdminOverview() {
       </div>
 
       <section className="card" style={{ marginTop: 'var(--space-5)' }} aria-labelledby="exports">
-        <div className="cardHeader"><h2 id="exports">Exports</h2></div>
+        <div className="cardHeader">
+          <h2 id="exports">Documents</h2>
+          <span className="subtle small">Sealed and verifiable</span>
+        </div>
         <div className="cardBody stack">
           <p className="muted">
-            Complete copies of the register, for the parish files and for the Treasurer books.
-            Every export is generated from live data at the moment you request it.
+            Formal records on the association letterhead, for the parish files and the Treasurer
+            books. Each one carries a document number and a code anyone can scan to confirm it
+            came from this office and has not been altered.
           </p>
           <p className="row" style={{ flexWrap: 'wrap' }}>
-            <DownloadButton url="/api/exports/admin/exports/roster.csv" filename="cma-changamwe-roster.csv" label="Full roster (CSV)"/>
-            <DownloadButton url="/api/exports/admin/exports/contributions.csv" filename="cma-changamwe-contributions.csv" label="Contributions ledger (CSV)"/>
-            <DownloadButton url="/api/exports/admin/exports/matrix.csv" filename="cma-changamwe-matrix.csv" label="Matrix snapshots (CSV)"/>
+            <DownloadButton url="/api/exports/admin/exports/roster.pdf" filename="cma-changamwe-member-register.pdf" label="Member register"/>
+            <DownloadButton url="/api/exports/admin/exports/contributions.pdf" filename="cma-changamwe-matoleo.pdf" label="Statement of matoleo"/>
+            <DownloadButton url="/api/exports/admin/exports/matrix.pdf" filename="cma-changamwe-matrix.pdf" label="Matrix standing"/>
+            <DownloadButton url="/api/exports/admin/exports/welfare.pdf" filename="cma-changamwe-welfare.pdf" label="Welfare support"/>
           </p>
           <p className="subtle small">
-            The roster export contains full ID numbers and next-of-kin details. Handle it as the
+            The member register carries full ID numbers and next-of-kin details. Handle it as the
             personal data it is.
           </p>
         </div>

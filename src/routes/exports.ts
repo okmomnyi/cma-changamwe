@@ -6,10 +6,13 @@ import { reportDownloadLimiter } from '../middleware/rateLimit.js';
 import { notFound } from '../util/errors.js';
 import { loadMatrixConfig } from '../matrix/config.js';
 import { evaluateMatrixForMember } from '../matrix/engine.js';
-import { renderBiodataPdf } from '../pdf/biodata.js';
-import { renderMatrixReportPdf } from '../pdf/matrix-report.js';
-import { currentPeriod } from '../util/time.js';
+import { drawBiodata, drawMatrixReport, type BiodataMember } from '../pdf/member-documents.js';
+import { todayNairobi } from '../util/time.js';
 import { fetchPhotoBytes } from '../media/r2.js';
+import { issueDocument } from '../documents/issue.js';
+import { drawContributions, drawMatrixSummary, drawRoster, drawWelfare,
+    type ContributionRow, type MatrixSummaryRow, type RosterRow, type WelfareRow } from '../pdf/registers.js';
+import { previousPeriod } from '../util/time.js';
 export const exportsRouter = Router();
 exportsRouter.use(requireAuth);
 function filename(name: string, suffix: string): string {
@@ -17,7 +20,7 @@ function filename(name: string, suffix: string): string {
     return `${safe || 'member'}-${suffix}`;
 }
 async function biodataFor(memberId: string) {
-    const member = await queryOne<Parameters<typeof renderBiodataPdf>[0]['member']>(`SELECT m.full_name, m.year_of_birth, m.id_or_passport_no, m.mobile_no,
+    const member = await queryOne<BiodataMember>(`SELECT m.full_name, m.year_of_birth, m.id_or_passport_no, m.mobile_no,
             m.home_parish_diocese, m.jumuiya, ph.name AS prayer_house, m.marital_status,
             m.spouse_name, m.spouse_status, m.father_status, m.mother_status,
             m.next_of_kin_name, m.next_of_kin_id_no, m.next_of_kin_mobile,
@@ -110,19 +113,45 @@ async function matrixReportFor(memberId: string, period?: string) {
         items: live.items as never[],
     };
 }
-function sendPdf(res: Parameters<Parameters<typeof exportsRouter.get>[1]>[1], pdf: Buffer, name: string) {
-    res.setHeader('content-type', 'application/pdf');
-    res.setHeader('content-disposition', `attachment; filename="${name}"`);
-    res.setHeader('content-length', String(pdf.length));
-    res.setHeader('cache-control', 'private, no-store');
-    res.end(pdf);
+async function issueBiodata(memberId: string, issuedBy: string) {
+    const data = await biodataFor(memberId);
+    const issued = await issueDocument({
+        kind: 'member_biodata',
+        title: 'Member Bio-Data',
+        orgName: data.orgName,
+        subjectMemberId: memberId,
+        subjectLabel: data.member.full_name,
+        metadata: { prayer_house: data.member.prayer_house, children: data.children.length },
+        issuedBy,
+    }, (doc) => drawBiodata(doc, data));
+    return { issued, name: filename(data.member.full_name, 'biodata.pdf') };
 }
+
+async function issueMatrixReport(memberId: string, period: string | undefined, issuedBy: string) {
+    const data = await matrixReportFor(memberId, period);
+    const issued = await issueDocument({
+        kind: 'matrix_report',
+        title: 'Matrix Report',
+        orgName: data.orgName,
+        subjectMemberId: memberId,
+        subjectLabel: data.memberName,
+        period: data.source === 'snapshot' ? data.period : null,
+        metadata: {
+            standing: data.standing,
+            total: data.totalScore,
+            attainable: data.attainableTotal,
+            source: data.source,
+        },
+        issuedBy,
+    }, (doc) => drawMatrixReport(doc, data));
+    return { issued, name: filename(data.memberName, `matrix-${data.period}.pdf`) };
+}
+
 exportsRouter.get('/me/biodata.pdf', reportDownloadLimiter, async (req, res, next) => {
     try {
-        const { memberId } = principalOf(req);
-        const data = await biodataFor(memberId);
-        const pdf = await renderBiodataPdf(data);
-        sendPdf(res, pdf, filename(data.member.full_name, 'biodata.pdf'));
+        const { memberId, userId } = principalOf(req);
+        const { issued, name } = await issueBiodata(memberId, userId);
+        sendIssued(res, issued.pdf, name, issued.documentId);
     }
     catch (err) {
         next(err);
@@ -130,11 +159,10 @@ exportsRouter.get('/me/biodata.pdf', reportDownloadLimiter, async (req, res, nex
 });
 exportsRouter.get('/me/matrix.pdf', reportDownloadLimiter, async (req, res, next) => {
     try {
-        const { memberId } = principalOf(req);
+        const { memberId, userId } = principalOf(req);
         const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional().parse(req.query.period);
-        const data = await matrixReportFor(memberId, period);
-        const pdf = await renderMatrixReportPdf(data);
-        sendPdf(res, pdf, filename(data.memberName, `matrix-${data.period}.pdf`));
+        const { issued, name } = await issueMatrixReport(memberId, period, userId);
+        sendIssued(res, issued.pdf, name, issued.documentId);
     }
     catch (err) {
         next(err);
@@ -143,9 +171,8 @@ exportsRouter.get('/me/matrix.pdf', reportDownloadLimiter, async (req, res, next
 exportsRouter.get('/admin/members/:id/biodata.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const id = z.string().uuid().parse(req.params.id);
-        const data = await biodataFor(id);
-        const pdf = await renderBiodataPdf(data);
-        sendPdf(res, pdf, filename(data.member.full_name, 'biodata.pdf'));
+        const { issued, name } = await issueBiodata(id, principalOf(req).userId);
+        sendIssued(res, issued.pdf, name, issued.documentId);
     }
     catch (err) {
         next(err);
@@ -155,108 +182,107 @@ exportsRouter.get('/admin/members/:id/matrix.pdf', requireAdmin, reportDownloadL
     try {
         const id = z.string().uuid().parse(req.params.id);
         const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional().parse(req.query.period);
-        const data = await matrixReportFor(id, period);
-        const pdf = await renderMatrixReportPdf(data);
-        sendPdf(res, pdf, filename(data.memberName, `matrix-${data.period}.pdf`));
+        const { issued, name } = await issueMatrixReport(id, period, principalOf(req).userId);
+        sendIssued(res, issued.pdf, name, issued.documentId);
     }
     catch (err) {
         next(err);
     }
 });
-function csvCell(input: unknown): string {
-    if (input === null || input === undefined)
-        return '';
-    let text = String(input);
-    // Member names come from public registration. A spreadsheet treats a cell
-    // opening with any of these as a formula and runs it, so the value is
-    // pushed behind an apostrophe and read back as the text it always was.
-    // A plain number is left alone, so amounts and years still calculate.
-    if (/^[=+\-@\t\r]/.test(text) && !/^-?\d+(\.\d+)?$/.test(text))
-        text = `'${text}`;
-    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-function csvRows(rows: Array<Record<string, unknown>>, columns: string[]): string {
-    const lines = [columns.map(csvCell).join(',')];
-    for (const row of rows)
-        lines.push(columns.map((c) => csvCell(row[c])).join(','));
-    return `\uFEFF${lines.join('\r\n')}\r\n`;
-}
-function sendCsv(res: Parameters<Parameters<typeof exportsRouter.get>[1]>[1], csv: string, name: string) {
-    res.setHeader('content-type', 'text/csv; charset=utf-8');
+
+/**
+ * Registers, as sealed PDFs. Each one is hashed and signed as it is made, and
+ * can be checked afterwards by anyone holding the file.
+ */
+function sendIssued(res: Parameters<Parameters<typeof exportsRouter.get>[1]>[1], pdf: Buffer, name: string, documentId: string) {
+    res.setHeader('content-type', 'application/pdf');
     res.setHeader('content-disposition', `attachment; filename="${name}"`);
+    res.setHeader('content-length', String(pdf.length));
     res.setHeader('cache-control', 'private, no-store');
-    res.end(csv);
+    res.setHeader('x-document-id', documentId);
+    res.end(pdf);
 }
-exportsRouter.get('/admin/exports/roster.csv', requireAdmin, reportDownloadLimiter, async (_req, res, next) => {
+
+const dated = (stem: string) => `cma-changamwe-${stem}-${todayNairobi()}.pdf`;
+
+exportsRouter.get('/admin/exports/roster.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
-        const rows = await query(`SELECT m.full_name, m.year_of_birth, m.id_or_passport_no, m.mobile_no,
-              ph.name AS prayer_house, m.jumuiya, m.home_parish_diocese,
-              m.marital_status, m.spouse_name, m.spouse_status,
-              m.father_status, m.mother_status,
-              m.next_of_kin_name, m.next_of_kin_id_no, m.next_of_kin_mobile,
-              m.membership_status, m.profile_locked,
-              u.username, u.email,
-              (SELECT count(*) FROM children c WHERE c.member_id = m.id)::int AS children,
-              (SELECT string_agg(oh.office_key, '; ' ORDER BY oh.office_key)
+        const config = await loadMatrixConfig();
+        const rows = await query<RosterRow>(`SELECT m.full_name, m.id_or_passport_no, m.mobile_no,
+              ph.name AS prayer_house, m.jumuiya, m.marital_status, m.membership_status,
+              (SELECT string_agg(ot.label, '; ' ORDER BY ot.sort_order)
                  FROM office_holders oh
+                 LEFT JOIN office_types ot ON ot.office_key = oh.office_key
                 WHERE oh.member_id = m.id AND oh.term_end IS NULL) AS current_offices,
-              to_char(m.declaration_accepted_at, 'YYYY-MM-DD') AS declaration_accepted,
               to_char(m.created_at, 'YYYY-MM-DD') AS joined
        FROM members m
        JOIN prayer_houses ph ON ph.id = m.prayer_house_id
-       LEFT JOIN users u ON u.member_id = m.id
        ORDER BY ph.name, m.full_name`);
-        const csv = csvRows(rows.rows, [
-            'full_name', 'year_of_birth', 'id_or_passport_no', 'mobile_no', 'prayer_house',
-            'jumuiya', 'home_parish_diocese', 'marital_status', 'spouse_name', 'spouse_status',
-            'father_status', 'mother_status', 'next_of_kin_name', 'next_of_kin_id_no',
-            'next_of_kin_mobile', 'membership_status', 'profile_locked', 'username', 'email',
-            'children', 'current_offices', 'declaration_accepted', 'joined',
-        ]);
-        sendCsv(res, csv, `cma-changamwe-roster-${new Date().toISOString().slice(0, 10)}.csv`);
+
+        const issued = await issueDocument({
+            kind: 'member_roster',
+            title: 'Member Register',
+            orgName: config.org_name,
+            subjectLabel: `${rows.rows.length} members`,
+            metadata: { members: rows.rows.length },
+            issuedBy: principalOf(req).userId,
+        }, (doc) => drawRoster(doc, config.org_name, rows.rows));
+
+        sendIssued(res, issued.pdf, dated('member-register'), issued.documentId);
     }
     catch (err) {
         next(err);
     }
 });
-exportsRouter.get('/admin/exports/matrix.csv', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
+
+exportsRouter.get('/admin/exports/matrix.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
-            .parse(req.query.period) ?? currentPeriod();
-        const rows = await query(`SELECT m.full_name, ph.name AS prayer_house, s.period,
-              round(s.spirituality_score, 4) AS spirituality_score,
-              round(s.financial_score, 4) AS financial_score,
-              round(s.total_score, 4) AS total_score,
-              round(s.attainable_total, 2) AS attainable_total,
-              s.standing, s.email_status,
-              to_char(s.generated_at, 'YYYY-MM-DD HH24:MI') AS generated_at
+            .parse(req.query.period) ?? previousPeriod();
+        const config = await loadMatrixConfig();
+
+        const rows = await query<MatrixSummaryRow>(`SELECT m.full_name, ph.name AS prayer_house,
+              s.spirituality_score::text, s.financial_score::text, s.total_score::text,
+              s.attainable_total::text, s.standing
        FROM matrix_scores s
        JOIN members m ON m.id = s.member_id
        JOIN prayer_houses ph ON ph.id = m.prayer_house_id
        WHERE s.period = $1
        ORDER BY s.total_score DESC`, [period]);
-        const csv = csvRows(rows.rows, [
-            'full_name', 'prayer_house', 'period', 'spirituality_score', 'financial_score',
-            'total_score', 'attainable_total', 'standing', 'email_status', 'generated_at',
-        ]);
-        sendCsv(res, csv, `cma-changamwe-matrix-${period}.csv`);
+
+        if (rows.rows.length === 0) {
+            throw notFound(`No standing has been recorded for ${period}. Close the month from the Matrix screen first.`);
+        }
+
+        const issued = await issueDocument({
+            kind: 'matrix_summary',
+            title: 'Matrix Standing',
+            orgName: config.org_name,
+            period,
+            subjectLabel: `${rows.rows.length} members`,
+            metadata: { members: rows.rows.length, period },
+            issuedBy: principalOf(req).userId,
+        }, (doc) => drawMatrixSummary(doc, config.org_name, period, rows.rows));
+
+        sendIssued(res, issued.pdf, dated(`matrix-${period}`), issued.documentId);
     }
     catch (err) {
         next(err);
     }
 });
-exportsRouter.get('/admin/exports/contributions.csv', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
+
+exportsRouter.get('/admin/exports/contributions.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
     try {
         const filters = z.object({
             from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
             to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         }).parse(req.query);
-        const rows = await query(`SELECT to_char(c.date, 'YYYY-MM-DD') AS date, m.full_name, ph.name AS prayer_house,
-              c.category, c.amount,
+        const config = await loadMatrixConfig();
+
+        const rows = await query<ContributionRow>(`SELECT to_char(c.date, 'YYYY-MM-DD') AS date,
+              m.full_name, ph.name AS prayer_house, c.category::text, c.amount::text,
               to_char(c.contribution_month, 'YYYY-MM') AS contribution_month,
-              c.affiliation_year, e.title AS event, c.note,
-              u.username AS recorded_by,
-              to_char(c.recorded_at, 'YYYY-MM-DD HH24:MI') AS recorded_at
+              c.affiliation_year, e.title AS event, u.username AS recorded_by
        FROM contributions c
        JOIN members m ON m.id = c.member_id
        JOIN prayer_houses ph ON ph.id = m.prayer_house_id
@@ -264,11 +290,49 @@ exportsRouter.get('/admin/exports/contributions.csv', requireAdmin, reportDownlo
        LEFT JOIN users u ON u.id = c.recorded_by
        WHERE ($1::date IS NULL OR c.date >= $1) AND ($2::date IS NULL OR c.date <= $2)
        ORDER BY c.date DESC, m.full_name`, [filters.from ?? null, filters.to ?? null]);
-        const csv = csvRows(rows.rows, [
-            'date', 'full_name', 'prayer_house', 'category', 'amount', 'contribution_month',
-            'affiliation_year', 'event', 'note', 'recorded_by', 'recorded_at',
-        ]);
-        sendCsv(res, csv, `cma-changamwe-contributions-${new Date().toISOString().slice(0, 10)}.csv`);
+
+        const issued = await issueDocument({
+            kind: 'contributions_statement',
+            title: 'Statement of Matoleo',
+            orgName: config.org_name,
+            subjectLabel: filters.from || filters.to
+                ? `${filters.from ?? 'the beginning'} to ${filters.to ?? 'today'}`
+                : 'All contributions',
+            metadata: { entries: rows.rows.length, from: filters.from ?? null, to: filters.to ?? null },
+            issuedBy: principalOf(req).userId,
+        }, (doc) => drawContributions(doc, config.org_name, rows.rows, filters));
+
+        sendIssued(res, issued.pdf, dated('matoleo'), issued.documentId);
+    }
+    catch (err) {
+        next(err);
+    }
+});
+
+exportsRouter.get('/admin/exports/welfare.pdf', requireAdmin, reportDownloadLimiter, async (req, res, next) => {
+    try {
+        const config = await loadMatrixConfig();
+        const rows = await query<WelfareRow>(`SELECT m.full_name, ph.name AS prayer_house,
+              c.support_type::text, c.amount::text, c.status::text, c.period,
+              c.standing_relied_on::text, c.subject_name,
+              c.requested_at::text, c.paid_at::text, c.payment_reference,
+              du.username AS decided_by
+       FROM welfare_claims c
+       JOIN members m ON m.id = c.member_id
+       JOIN prayer_houses ph ON ph.id = m.prayer_house_id
+       LEFT JOIN users du ON du.id = c.decided_by
+       ORDER BY c.requested_at DESC`);
+
+        const issued = await issueDocument({
+            kind: 'welfare_statement',
+            title: 'Welfare Support',
+            orgName: config.org_name,
+            subjectLabel: `${rows.rows.length} claims`,
+            metadata: { claims: rows.rows.length },
+            issuedBy: principalOf(req).userId,
+        }, (doc) => drawWelfare(doc, config.org_name, rows.rows));
+
+        sendIssued(res, issued.pdf, dated('welfare'), issued.documentId);
     }
     catch (err) {
         next(err);

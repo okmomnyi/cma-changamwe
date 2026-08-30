@@ -50,6 +50,14 @@ BEGIN
       || 'ON TABLE welfare_claims TO %I', app_role);
   END IF;
 
+  -- An issued document is a permanent record. It can be revoked; it cannot be
+  -- unissued, and its hash and signature can never be rewritten.
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'documents') THEN
+    EXECUTE format('REVOKE ALL ON TABLE documents FROM %I', app_role);
+    EXECUTE format('GRANT SELECT, INSERT ON TABLE documents TO %I', app_role);
+    EXECUTE format('GRANT UPDATE (revoked_at, revoked_reason) ON TABLE documents TO %I', app_role);
+  END IF;
+
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'pgmigrations') THEN
     EXECUTE format('REVOKE ALL ON TABLE pgmigrations FROM %I', app_role);
     EXECUTE format('GRANT SELECT ON TABLE pgmigrations TO %I', app_role);

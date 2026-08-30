@@ -52,6 +52,9 @@ const schema = z.object({
     // removed once BACKUP_MIN_KEEP verified newer ones exist.
     BACKUP_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
     BACKUP_MIN_KEEP: z.coerce.number().int().min(1).max(60).default(3),
+    // Ed25519 private key, PEM, base64 encoded. Seals every issued document.
+    // Generate with: npm run documents:keygen
+    DOCUMENT_SIGNING_KEY: z.string().optional(),
 });
 const present = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== undefined && value !== ''));
 const parsed = schema.safeParse(present);

@@ -67,6 +67,11 @@ PUBLIC_BASE_URL=https://<domain>
 ALLOW_DEMO_LOGIN=false
 ```
 
+`DOCUMENT_SIGNING_KEY` seals every issued document. Generate one **once**, with
+`npm run documents:keygen`, and keep it. Replacing it does not invalidate
+documents already issued, since each records the key that signed it, but a
+missing key means no document can be issued at all.
+
 Leave `SERVERLESS=false`. The API process is long-lived, so it runs the nightly
 backup and the daily reports from its own timer; there is no external cron.
 

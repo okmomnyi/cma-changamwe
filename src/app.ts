@@ -14,6 +14,7 @@ import { adminRouter } from './routes/admin.js';
 import { exportsRouter } from './routes/exports.js';
 import { photosRouter } from './routes/photos.js';
 import { jobsRouter } from './routes/jobs.js';
+import { verifyRouter } from './routes/verify.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 export function createApp() {
     const app = express();
@@ -38,6 +39,8 @@ export function createApp() {
     app.use(express.json({ limit: '256kb' }));
     app.use(cookieParser());
     app.use('/api', healthRouter);
+    // Public: anyone holding a document can check it, with no account.
+    app.use('/api/verify', verifyRouter);
     app.use('/api/auth', authRouter);
     app.use('/api/signup', signupRouter);
     app.use('/api/me', meRouter);

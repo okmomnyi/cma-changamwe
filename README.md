@@ -237,6 +237,42 @@ The application role holds no DELETE on `welfare_claims`, and may update only
 the decision and payment columns. A claim can be withdrawn; it cannot be
 removed, and its amount and subject cannot be rewritten after the fact.
 
+## Documents
+
+Every register, statement and report leaves as a PDF on the association
+letterhead. Nothing exports as CSV.
+
+Each one is minted with a document number (`CMA-2026-ROS-A7F3K9`), rendered with
+that number and a QR code on the page, then hashed with SHA-256 and signed with
+the server's Ed25519 key. The hash therefore covers the verification block that
+refers to it, so an altered file fails the check while its number still reads
+correctly.
+
+| Document | Who can issue it |
+|---|---|
+| Member bio-data | the member, or an officer |
+| Matrix report | the member, or an officer |
+| Member register | an officer |
+| Statement of matoleo | an officer |
+| Matrix standing | an officer |
+| Welfare support | an officer |
+
+Anyone holding a file can check it at `/verify/:document_id`, with no account:
+see what was issued and when, confirm the file is byte-for-byte the one issued,
+or download the public key and verify the signature themselves.
+
+**The file is never uploaded.** The browser hashes it with WebCrypto and sends
+only the digest, so a member's bio-data does not cross the network to be
+checked.
+
+`documents` rows cannot be deleted, by grant and by trigger. A document that
+should no longer be relied on is revoked, which the verification page reports;
+the record that it existed stays.
+
+```bash
+npm run documents:keygen    # once, then put the line in .env
+```
+
 ## Member photographs
 
 Photographs are compressed in the browser and uploaded straight to Cloudflare
