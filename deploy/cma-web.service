@@ -1,0 +1,31 @@
+[Unit]
+Description=CMA Changamwe web interface
+After=network-online.target cma-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=test
+WorkingDirectory=/home/test/cma-changamwe/web
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOSTNAME=127.0.0.1
+Environment=API_ORIGIN=http://127.0.0.1:3000
+ExecStart=node_modules/.bin/next start -p 3001
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/test/cma-changamwe/web/.next
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cma-web
+
+[Install]
+WantedBy=multi-user.target

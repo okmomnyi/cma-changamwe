@@ -1,0 +1,29 @@
+# Caddy terminates TLS and puts both processes behind one origin, which is what
+# lets the refresh cookie stay SameSite=Strict with no CORS.
+#
+#   /api/*  ->  the Express API on 3000
+#   /*      ->  Next.js on 3001
+
+cma.example.org {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/cma.log
+		format json
+	}
+}

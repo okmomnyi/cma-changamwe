@@ -1,0 +1,31 @@
+[Unit]
+Description=CMA Changamwe API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=test
+WorkingDirectory=/home/test/cma-changamwe
+EnvironmentFile=/home/test/cma-changamwe/.env
+ExecStart=/usr/bin/node dist/src/index.js
+Restart=always
+RestartSec=5
+
+# The process needs nothing but its own directory and the network.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/test/cma-changamwe
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cma-api
+
+[Install]
+WantedBy=multi-user.target

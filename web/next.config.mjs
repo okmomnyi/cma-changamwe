@@ -1,24 +1,16 @@
 /**
- * Every deployment keeps the browser on ONE origin, and the /api/* rewrite is
- * what makes that true:
+ * The browser only ever talks to one origin. The /api/* rewrite is what makes
+ * that true, and the refresh cookie being SameSite=Strict with no CORS anywhere
+ * depends on it.
  *
- *   local   -> http://127.0.0.1:3000   (the Express server)
- *   Docker  -> http://app:3000         (Caddy does the same routing in front)
- *   Vercel  -> the API project's URL   (a server-side proxy, so the browser
- *                                       still only ever sees the web domain)
- *
- * This is not a convenience. The refresh cookie is SameSite=Strict and the API
- * has no CORS configuration at all; both depend on the browser never making a
- * cross-origin request.
+ * API_ORIGIN is read at build time, not run time: it is baked into the routes
+ * manifest. Both processes sit on one host, so the default is what ships.
  */
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://127.0.0.1:3000';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Standalone output is for the Docker image, which runs `node server.js`.
-  // Vercel builds its own output and setting this there only confuses it.
-  ...(process.env.VERCEL ? {} : { output: 'standalone' }),
   poweredByHeader: false,
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` }];
