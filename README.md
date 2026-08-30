@@ -257,13 +257,18 @@ correctly.
 | Matrix standing | an officer |
 | Welfare support | an officer |
 
-Anyone holding a file can check it at `/verify/:document_id`, with no account:
-see what was issued and when, confirm the file is byte-for-byte the one issued,
-or download the public key and verify the signature themselves.
+Scanning the code opens `/verify/:document_id`, which needs no account. It
+reports whether the number was issued and whether its seal is intact, then lists
+what the association issued under it: the type, the date, who it concerns, and
+the facts worth checking against the paper in hand.
 
-**The file is never uploaded.** The browser hashes it with WebCrypto and sends
-only the digest, so a member's bio-data does not cross the network to be
-checked.
+That summary is deliberately narrow. It carries counts, dates and the subject,
+never the identity numbers or next-of-kin the document itself holds, because
+anyone can reach the page.
+
+What it proves: the number is real, the record is sealed, and the details on
+screen are what was issued. Comparing those against the paper is what catches an
+alteration.
 
 `documents` rows cannot be deleted, by grant and by trigger. A document that
 should no longer be relied on is revoked, which the verification page reports;

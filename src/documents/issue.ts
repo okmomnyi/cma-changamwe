@@ -91,13 +91,14 @@ export interface DocumentRecord {
     revoked_at: string | null;
     revoked_reason: string | null;
     issued_by_name: string | null;
+    metadata: Record<string, unknown> | null;
 }
 
 export async function findDocument(documentId: string): Promise<DocumentRecord | null> {
     return queryOne<DocumentRecord>(
         `SELECT d.document_id, d.kind, d.title, d.subject_label, d.period,
                 d.sha256, d.signature, d.key_id, d.byte_size, d.page_count,
-                d.issued_at::text, d.revoked_at::text, d.revoked_reason,
+                d.metadata, d.issued_at::text, d.revoked_at::text, d.revoked_reason,
                 m.full_name AS issued_by_name
            FROM documents d
            LEFT JOIN users u ON u.id = d.issued_by

@@ -70,18 +70,6 @@
   font-size: var(--text-md); margin-bottom: var(--space-2);
 }
 
-.file {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  margin: var(--space-3) 0;
-  padding: 0 var(--space-4); height: 2.25rem;
-  border-radius: var(--radius); border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--navy-700);
-  font-size: var(--text-base); font-weight: 500; cursor: pointer;
-}
-.file:hover { background: var(--ink-050); }
-.file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.file:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
-
 .foot {
   margin-top: var(--space-6); padding-top: var(--space-4);
   border-top: 1px solid var(--border);

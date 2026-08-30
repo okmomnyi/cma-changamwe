@@ -121,7 +121,12 @@ async function issueBiodata(memberId: string, issuedBy: string) {
         orgName: data.orgName,
         subjectMemberId: memberId,
         subjectLabel: data.member.full_name,
-        metadata: { prayer_house: data.member.prayer_house, children: data.children.length },
+        metadata: {
+            member: data.member.full_name,
+            prayer_house: data.member.prayer_house,
+            children_listed: data.children.length,
+            membership: data.member.membership_status,
+        },
         issuedBy,
     }, (doc) => drawBiodata(doc, data));
     return { issued, name: filename(data.member.full_name, 'biodata.pdf') };
@@ -137,10 +142,11 @@ async function issueMatrixReport(memberId: string, period: string | undefined, i
         subjectLabel: data.memberName,
         period: data.source === 'snapshot' ? data.period : null,
         metadata: {
+            member: data.memberName,
+            prayer_house: data.prayerHouse,
             standing: data.standing,
-            total: data.totalScore,
-            attainable: data.attainableTotal,
-            source: data.source,
+            score: `${data.totalScore.toFixed(2)} of ${data.attainableTotal.toFixed(0)}`,
+            covering: data.source === 'snapshot' ? 'a closed month' : 'live figures',
         },
         issuedBy,
     }, (doc) => drawMatrixReport(doc, data));
@@ -224,7 +230,7 @@ exportsRouter.get('/admin/exports/roster.pdf', requireAdmin, reportDownloadLimit
             title: 'Member Register',
             orgName: config.org_name,
             subjectLabel: `${rows.rows.length} members`,
-            metadata: { members: rows.rows.length },
+            metadata: { members: rows.rows.length, prayer_houses: new Set(rows.rows.map((r) => r.prayer_house)).size },
             issuedBy: principalOf(req).userId,
         }, (doc) => drawRoster(doc, config.org_name, rows.rows));
 
@@ -260,7 +266,11 @@ exportsRouter.get('/admin/exports/matrix.pdf', requireAdmin, reportDownloadLimit
             orgName: config.org_name,
             period,
             subjectLabel: `${rows.rows.length} members`,
-            metadata: { members: rows.rows.length, period },
+            metadata: {
+                members: rows.rows.length,
+                month: period,
+                in_good_standing: rows.rows.filter((r) => r.standing === 'in_good_standing').length,
+            },
             issuedBy: principalOf(req).userId,
         }, (doc) => drawMatrixSummary(doc, config.org_name, period, rows.rows));
 
@@ -298,7 +308,12 @@ exportsRouter.get('/admin/exports/contributions.pdf', requireAdmin, reportDownlo
             subjectLabel: filters.from || filters.to
                 ? `${filters.from ?? 'the beginning'} to ${filters.to ?? 'today'}`
                 : 'All contributions',
-            metadata: { entries: rows.rows.length, from: filters.from ?? null, to: filters.to ?? null },
+            metadata: {
+                entries: rows.rows.length,
+                total: rows.rows.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+                from: filters.from ?? null,
+                to: filters.to ?? null,
+            },
             issuedBy: principalOf(req).userId,
         }, (doc) => drawContributions(doc, config.org_name, rows.rows, filters));
 
@@ -328,7 +343,12 @@ exportsRouter.get('/admin/exports/welfare.pdf', requireAdmin, reportDownloadLimi
             title: 'Welfare Support',
             orgName: config.org_name,
             subjectLabel: `${rows.rows.length} claims`,
-            metadata: { claims: rows.rows.length },
+            metadata: {
+                claims: rows.rows.length,
+                paid: rows.rows.filter((r) => r.status === 'paid').length,
+                paid_total: rows.rows.filter((r) => r.status === 'paid')
+                    .reduce((sum, r) => sum + Number(r.amount || 0), 0),
+            },
             issuedBy: principalOf(req).userId,
         }, (doc) => drawWelfare(doc, config.org_name, rows.rows));
 
