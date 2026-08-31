@@ -15,6 +15,7 @@ import { exportsRouter } from './routes/exports.js';
 import { photosRouter } from './routes/photos.js';
 import { jobsRouter } from './routes/jobs.js';
 import { verifyRouter } from './routes/verify.js';
+import { publicRouter } from './routes/public.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 export function createApp() {
     const app = express();
@@ -41,6 +42,7 @@ export function createApp() {
     app.use('/api', healthRouter);
     // Public: anyone holding a document can check it, with no account.
     app.use('/api/verify', verifyRouter);
+    app.use('/api/public', publicRouter);
     app.use('/api/auth', authRouter);
     app.use('/api/signup', signupRouter);
     app.use('/api/me', meRouter);

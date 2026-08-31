@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     },
     description: 'Member records, attendance, matoleo and performance tracking for the Catholic Men Association, Changamwe Parish.',
     applicationName: 'CMA Changamwe',
+    // Everything holds personal data and stays out of the index. The landing
+    // page, which holds none, opts itself back in.
     robots: { index: false, follow: false },
 };
 export const viewport: Viewport = {

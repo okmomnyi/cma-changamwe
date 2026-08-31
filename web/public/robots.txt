@@ -1,4 +1,12 @@
-# This is an internal member system holding personal data. It must not be
-# indexed by search engines under any circumstances.
+# The landing page is public and may be indexed. Everything behind it holds
+# personal data and must not be.
 User-agent: *
-Disallow: /
+Allow: /$
+Disallow: /portal
+Disallow: /admin
+Disallow: /sign-in
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify
+Disallow: /api
