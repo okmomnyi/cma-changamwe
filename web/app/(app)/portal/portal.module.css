@@ -42,7 +42,7 @@
   text-decoration: none;
   color: var(--text);
 }
-.linkRow:hover { background: var(--ink-050); color: var(--navy-700); }
+.linkRow:hover { background: var(--hover); color: var(--brand-fg); }
 .linkRow svg { color: var(--text-subtle); }
 
 .scoreLine { display: flex; align-items: baseline; gap: var(--space-2); }
@@ -50,7 +50,7 @@
 .scoreValue {
   font-size: var(--text-xl);
   font-weight: 600;
-  color: var(--navy-800);
+  color: var(--heading);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }

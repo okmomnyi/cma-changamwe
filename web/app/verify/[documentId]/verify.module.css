@@ -2,7 +2,7 @@
   min-height: 100dvh;
   padding: var(--space-6) var(--space-4) var(--space-8);
   background:
-    radial-gradient(60rem 40rem at 50% -10%, var(--navy-050), transparent 70%),
+    radial-gradient(60rem 40rem at 50% -10%, var(--brand-soft), transparent 70%),
     var(--bg);
 }
 
@@ -20,7 +20,7 @@
 
 .mark {
   width: 2.25rem; height: 2.25rem; border-radius: var(--radius);
-  background: var(--navy-700); position: relative; flex-shrink: 0;
+  background: var(--brand); position: relative; flex-shrink: 0;
 }
 .mark::before, .mark::after {
   content: ''; position: absolute; background: var(--brass-100); border-radius: 1px;
@@ -28,7 +28,7 @@
 .mark::before { width: 2px; height: 1.25rem; left: calc(50% - 1px); top: 0.5rem; }
 .mark::after { width: 0.875rem; height: 2px; left: calc(50% - 0.4375rem); top: 0.95rem; }
 
-.org { font-weight: 600; color: var(--navy-800); }
+.org { font-weight: 600; color: var(--heading); }
 .sub { font-size: var(--text-sm); color: var(--text-subtle); }
 
 .title {
@@ -75,11 +75,11 @@
   margin: var(--space-3) 0;
   padding: 0 var(--space-4); height: 2.25rem;
   border-radius: var(--radius); border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--navy-700);
+  background: var(--surface); color: var(--brand-fg);
   font-size: var(--text-base); font-weight: 500; cursor: pointer;
   position: relative;
 }
-.file:hover { background: var(--ink-050); }
+.file:hover { background: var(--hover); }
 .file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .file:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 

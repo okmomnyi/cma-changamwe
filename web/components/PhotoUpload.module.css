@@ -22,7 +22,7 @@
 .placeholder {
   display: grid;
   place-items: center;
-  color: var(--ink-300);
+  color: var(--text-subtle);
 }
 
 .controls {

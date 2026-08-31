@@ -4,6 +4,7 @@ import {
     BookOpen, CalendarDays, Church, Coins, HandHeart, HeartHandshake,
     MapPin, ShieldCheck, Users,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import styles from './landing.module.css';
 
 export const metadata: Metadata = {
@@ -183,6 +184,7 @@ export default async function LandingPage() {
             <a href="#programme">Programme</a>
             <a href="#join">Join</a>
             <Link className={`btn btnSecondary ${styles.portalLink}`} href="/sign-in">Member portal</Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>

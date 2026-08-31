@@ -22,10 +22,12 @@
   text-align: center;
 }
 
-.stateTitle { font-weight: 500; color: var(--ink-800); }
+.pageIdentity { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+
+.stateTitle { font-weight: 500; color: var(--text); }
 .errorIcon { color: var(--absent-fg); }
 
-.spinner { color: var(--navy-500); animation: spin 900ms linear infinite; }
+.spinner { color: var(--brand-fg); animation: spin 900ms linear infinite; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -52,7 +54,7 @@
 .statValue {
   font-size: var(--text-xl);
   font-weight: 600;
-  color: var(--navy-800);
+  color: var(--heading);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
@@ -62,10 +64,10 @@
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: var(--brass-050);
-  border: 1px solid var(--brass-100);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft-border);
   border-radius: var(--radius);
-  color: var(--brass-700);
+  color: var(--accent-strong);
   font-size: var(--text-sm);
   margin-bottom: var(--space-5);
 }
@@ -73,7 +75,7 @@
 .demoNotice code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--brass-100);
+  background: var(--accent-soft-border);
   padding: 0 0.25em;
   border-radius: var(--radius-sm);
 }

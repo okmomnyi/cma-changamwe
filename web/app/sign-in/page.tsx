@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LogIn, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { ApiError, type SessionUser } from '@/lib/api';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import styles from './sign-in.module.css';
 
 export default function SignInPage() {
@@ -138,5 +139,7 @@ export default function SignInPage() {
           </>
         )}
       </div>
+
+      <div className={styles.themeRow}><ThemeToggle /></div>
     </main>);
 }

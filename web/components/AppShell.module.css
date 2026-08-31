@@ -66,11 +66,19 @@
   border-top: 1px solid var(--navy-700);
   display: flex; flex-direction: column; gap: var(--space-1);
 }
+.accountTop { display: flex; align-items: center; gap: var(--space-3); }
+.accountTop > div:first-child { border-color: rgb(255 255 255 / 0.2); background: rgb(0 0 0 / 0.25); }
+.accountText { min-width: 0; }
+
+.accountActions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2); margin-top: var(--space-1);
+}
+
 .accountName { font-weight: 500; color: var(--white); overflow-wrap: anywhere; }
 .account .subtle { color: var(--navy-100); opacity: 0.7; }
 
 .signOut {
-  margin-top: var(--space-2);
   justify-content: flex-start;
   color: var(--navy-100);
   padding-left: 0;
@@ -90,7 +98,7 @@
     margin: var(--space-3);
     background: var(--surface);
     border: 1px solid var(--border-strong);
-    color: var(--navy-700);
+    color: var(--brand-fg);
   }
 
   .sidebar {

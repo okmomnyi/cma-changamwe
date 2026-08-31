@@ -29,7 +29,7 @@
   margin: var(--space-1) 0 0;
   font-size: var(--text-lg);
   font-weight: 600;
-  color: var(--navy-800);
+  color: var(--heading);
   font-variant-numeric: tabular-nums;
 }
 

@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { useResource } from '@/lib/useResource';
 import { DemoNotice, ErrorState, LoadingState, PageHeader, Stat, StatGrid } from '@/components/ui';
 import { StandingBadge } from '@/components/MatrixBreakdown';
+import { MemberPhoto } from '@/components/MemberPhoto';
 import { formatKes, titleCase } from '@/lib/format';
 import styles from './portal.module.css';
 interface ProfileResponse {
@@ -59,7 +60,7 @@ export default function PortalOverview() {
     const isDemo = member.id_or_passport_no?.startsWith('DEMO-');
     const contributedTotal = contributions.data?.by_category.reduce((sum, row) => sum + Number(row.total), 0);
     return (<>
-      <PageHeader title={`Habari, ${member.full_name.split(' ')[0]}`} description={`${member.prayer_house} prayer house - membership ${titleCase(member.membership_status).toLowerCase()}.`}/>
+      <PageHeader title={`Habari, ${member.full_name.split(' ')[0]}`} description={`${member.prayer_house} prayer house - membership ${titleCase(member.membership_status).toLowerCase()}.`} avatar={<MemberPhoto url="/api/me/photo/url" alt={`Photograph of ${member.full_name}`} size="avatarLg"/>}/>
 
       {isDemo ? <DemoNotice /> : null}
 

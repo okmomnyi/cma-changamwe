@@ -7,6 +7,8 @@ import { BookOpenCheck, CalendarDays, ClipboardList, Coins, Gauge, HandCoins, Lo
 import { useAuth } from '@/lib/auth';
 import { officeLabel } from '@/lib/format';
 import { LoadingState } from './ui';
+import { MemberPhoto } from './MemberPhoto';
+import { ThemeToggle } from './ThemeToggle';
 import styles from './AppShell.module.css';
 const MEMBER_NAV = [
     { href: '/portal', label: 'Overview', icon: Gauge },
@@ -90,14 +92,22 @@ export function AppShell({ children }: {
           </div>) : null}
 
         <div className={styles.account}>
-          <p className={styles.accountName}>{user.username}</p>
-          <p className="subtle small">
-            {user.offices.length ? user.offices.map(officeLabel).join(', ') : 'Member'}
-          </p>
-          <button type="button" className={`btn btnGhost ${styles.signOut}`} onClick={handleSignOut}>
-            <LogOut size={15} aria-hidden="true"/>
-            Sign out
-          </button>
+          <div className={styles.accountTop}>
+            <MemberPhoto url="/api/me/photo/url" alt={`Photograph of ${user.username}`} size="avatar"/>
+            <div className={styles.accountText}>
+              <p className={styles.accountName}>{user.username}</p>
+              <p className="subtle small">
+                {user.offices.length ? user.offices.map(officeLabel).join(', ') : 'Member'}
+              </p>
+            </div>
+          </div>
+          <div className={styles.accountActions}>
+            <button type="button" className={`btn btnGhost ${styles.signOut}`} onClick={handleSignOut}>
+              <LogOut size={15} aria-hidden="true"/>
+              Sign out
+            </button>
+            <ThemeToggle onDark/>
+          </div>
         </div>
       </aside>
 

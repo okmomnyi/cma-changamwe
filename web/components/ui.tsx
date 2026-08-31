@@ -8,19 +8,24 @@ import styles from './ui.module.css';
  * Every screen behind sign-in is a client component and cannot export Next's
  * `metadata`, so the tab is named here and always matches the heading.
  */
-export function PageHeader({ title, description, actions, }: {
+export function PageHeader({ title, description, actions, avatar, }: {
     title: string;
     description?: string;
     actions?: React.ReactNode;
+    /** The member's photograph, where the page is about one member. */
+    avatar?: React.ReactNode;
 }) {
     useEffect(() => {
         document.title = `${title} - CMA Changamwe`;
     }, [title]);
 
     return (<header className={styles.pageHeader}>
-      <div>
+      <div className={styles.pageIdentity}>
+        {avatar}
+        <div>
         <h1>{title}</h1>
         {description ? <p className={styles.pageDescription}>{description}</p> : null}
+        </div>
       </div>
       {actions ? <div className="row">{actions}</div> : null}
     </header>);

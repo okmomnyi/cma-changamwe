@@ -30,9 +30,9 @@
   background: var(--surface);
 }
 
-.statusOption:hover { background: var(--ink-050); }
-.statusOption input { accent-color: var(--navy-700); margin: 0; }
-.statusOption:has(input:checked) { border-color: var(--navy-500); background: var(--navy-050); color: var(--navy-800); font-weight: 500; }
+.statusOption:hover { background: var(--hover); }
+.statusOption input { accent-color: var(--brand-fg); margin: 0; }
+.statusOption:has(input:checked) { border-color: var(--brand-fg); background: var(--brand-soft); color: var(--heading); font-weight: 500; }
 .statusOption:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .error {

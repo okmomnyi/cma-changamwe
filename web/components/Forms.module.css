@@ -20,12 +20,12 @@
   background: var(--surface);
 }
 
-.segment:hover { background: var(--ink-050); }
-.segment input { accent-color: var(--navy-700); margin: 0; }
+.segment:hover { background: var(--hover); }
+.segment input { accent-color: var(--brand-fg); margin: 0; }
 .segment:has(input:checked) {
-  border-color: var(--navy-500);
-  background: var(--navy-050);
-  color: var(--navy-800);
+  border-color: var(--brand-fg);
+  background: var(--brand-soft);
+  color: var(--heading);
   font-weight: 500;
 }
 .segment:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -67,4 +67,4 @@
   font-size: var(--text-base);
   cursor: pointer;
 }
-.ordinal input { accent-color: var(--navy-700); cursor: pointer; }
+.ordinal input { accent-color: var(--brand-fg); cursor: pointer; }
