@@ -2,7 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, ScanLine, Save } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useResource } from '@/lib/useResource';
 import { ErrorState, LoadingState, PageHeader, Pill } from '@/components/ui';
@@ -77,12 +77,11 @@ export default function EventRegisterPage({ params }: {
                 created: number;
                 updated: number;
                 unchanged: number;
-                members_rescored: number;
             }>(`/api/admin/events/${id}/attendance`, {
                 method: 'PUT', body: JSON.stringify({ entries }),
             });
             setSaved(`Saved. ${result.created} new, ${result.updated} changed, ${result.unchanged} unchanged. ` +
-                `${result.members_rescored} scores recalculated.`);
+                'Matrix scores read from this immediately.');
             reload();
         }
         catch (err) {
@@ -117,9 +116,15 @@ export default function EventRegisterPage({ params }: {
         </Link>
       </p>
 
-      <PageHeader title={event.title} description={`${formatDate(event.date)} - ${eventTypeLabel(event.type)}${event.subtype ? ` (${event.subtype})` : ''}`} actions={event.matrix_item_key
+      <PageHeader title={event.title} description={`${formatDate(event.date)} - ${eventTypeLabel(event.type)}${event.subtype ? ` (${event.subtype})` : ''}`} actions={<>
+            {event.matrix_item_key
             ? <Pill tone="navy">Feeds {matrixItemLabel(event.matrix_item_key)}</Pill>
-            : <Pill>Not scored</Pill>}/>
+            : <Pill>Not scored</Pill>}
+            <Link href="/admin/attendance-sheets" className="btn btnSecondary">
+              <ScanLine size={15} aria-hidden="true"/>
+              Print a sheet instead
+            </Link>
+          </>}/>
 
       {saveError ? <p className={styles.error} role="alert">{saveError}</p> : null}
       {saved ? <p className={styles.notice} role="status">{saved}</p> : null}

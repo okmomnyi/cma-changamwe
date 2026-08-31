@@ -1,15 +1,17 @@
 # The VPS
 
-Two Node processes behind Caddy on one host. The database is Neon; nothing
-runs Postgres locally.
+Two Node processes behind Caddy on one host, and one Python process behind
+neither. The database is Neon; nothing runs Postgres locally.
 
 ```
         Caddy :443
        /            \
   /api/*            /*
   cma-api :3000     cma-web :3001
-       \
-        Neon (Postgres)  +  Cloudflare R2
+       |   \
+       |    Neon (Postgres)  +  Cloudflare R2
+       |
+  cma-omr :3002   the sheet reader, loopback only
 ```
 
 ## Deploying
@@ -20,7 +22,7 @@ runs `.github/scripts/vps-deploy.sh`, which rolls forward, rebuilds, migrates,
 restarts and waits for both processes to answer.
 
 This directory holds the pieces that live on the VPS rather than in the
-pipeline: the two systemd units and the Caddyfile.
+pipeline: the three systemd units and the Caddyfile.
 
 ## Units
 
@@ -33,6 +35,29 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now cma-api cma-web
 ```
 
+### The sheet reader
+
+`cma-omr.service` runs the Python register-and-detect service for attendance
+sheets. It is optional: with `OMR_SERVICE_URL` unset the system says so in
+those words and attendance is entered by hand.
+
+```bash
+cd /home/test/cma-changamwe/omr
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+sudo cp deploy/cma-omr.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cma-omr
+curl -s http://127.0.0.1:3002/health
+```
+
+Then set `OMR_SERVICE_URL=http://127.0.0.1:3002` in `.env` and restart the API.
+
+**It must not be added to the Caddyfile.** It authenticates nobody, because
+nobody but the API on this host is meant to reach it, and the photographs it is
+sent carry member names.
+
 The deploy script restarts them through one narrow sudoers entry:
 
 ```
@@ -44,6 +69,11 @@ test ALL=(root) NOPASSWD: /usr/local/sbin/cma-deploy-restart
 # /usr/local/sbin/cma-deploy-restart
 exec systemctl restart cma-api cma-web
 ```
+
+The reader is left out of that restart on purpose. It carries no application
+code that a deploy changes, and restarting it mid-upload would lose a
+photograph that has already been taken. Restart it by hand when its own
+requirements change.
 
 ## Caddy
 
@@ -82,7 +112,7 @@ changing if the API moves, and then the interface must be rebuilt.
 ## Checking on it
 
 ```bash
-systemctl status cma-api cma-web
+systemctl status cma-api cma-web cma-omr
 journalctl -u cma-api -f
 curl -s https://<domain>/api/ready
 

@@ -17,7 +17,8 @@ treated as build requirements rather than polish.
 | Migrations | node-pg-migrate |
 | Auth | argon2id passwords, JWT access token, rotating refresh token |
 | Frontend | React 19, Next.js 15, CSS Modules |
-| Storage | Cloudflare R2 for member photographs |
+| Sheet reader | Python, FastAPI and OpenCV, on the loopback address |
+| Storage | Cloudflare R2 for member photographs and sheet scans |
 | Email | Brevo |
 | Hosting | One VPS, systemd and Caddy |
 | Backups | Nightly logical export to R2, verified after upload |
@@ -38,10 +39,12 @@ src/
   matrix/      the scoring engine
   comms/       monthly report and leadership digest
   media/       R2 presigning
-  pdf/         bio-data and report documents
+  pdf/         bio-data, report and attendance-sheet documents
+  omr/         sheet geometry, generation, detection client, review and commit
   backup/      logical export, verification, retention
   jobs/        monthly scheduler
-scripts/       grants and first-administrator bootstrap
+omr/           the Python register-and-detect service, and its calibration tools
+scripts/       grants, bootstrap, print checks
 web/           Next.js interface
 ```
 
@@ -317,6 +320,125 @@ The bucket needs a CORS rule or the browser upload is blocked:
 }]
 ```
 
+## Attendance sheets
+
+Attendance is entered by hand from each event's register, and always can be.
+Alongside that, the system prints the roll on a sheet, and reads it back from a
+photograph.
+
+The parish already keeps a paper register. This removes the typing, not the
+paper: the sheet is generated from the database with the names already on it,
+the roll-caller ticks a box per member, the secretary photographs each page,
+and the software proposes attendance for someone to check.
+
+```
+generate -> print -> capture -> register -> detect -> review -> commit
+```
+
+**Nothing commits without a person.** No photograph pipeline is right every
+time, and these ticks decide who qualifies for welfare money. The reader's job
+is to be right about the easy majority and honest about the rest: every cell it
+could not call is flagged and sorted to the top of the review screen, and a
+sheet it cannot square up is refused rather than guessed at.
+
+### The sheet
+
+It is a document of the association like any other, on the same letterhead,
+with the same verification code in the same footer. It adds three things.
+
+| | Where | For |
+|---|---|---|
+| Pointer QR | header, top right | the sheet code, which resolves to the meeting and the roll |
+| Corner marks | four page corners | pinning the page so a photograph can be squared up |
+| Present box | one per row | marked is present, blank is absent |
+
+The pointer carries a code, a template version and a checksum, and nothing
+else. Everything about the meeting is looked up from that code on the server,
+which is what keeps the symbol small and sparse enough to sit unobtrusively in
+the header and still decode from a phone photograph.
+
+The corner marks can be small because the two QR codes already anchor opposite
+diagonals; every QR carries three finder patterns, which are exactly the
+high-contrast features alignment wants. The marks only pin the other two
+corners.
+
+**The machine never reads a name.** Row *n* of a sheet is whichever member the
+stored manifest says it is. A smudged or misread name cannot put attendance
+against the wrong person, because no name is ever read.
+
+There is one Present column, not three. A second column would bring back the
+one-of-many ambiguity the binary sheet avoids, and apologies are the one thing
+the paper cannot know: the secretary reconciles them on the review screen. For
+the Matrix an apology already counts as present, so the sheet loses nothing.
+
+### Print fresh, never photocopy
+
+A copy degrades the registration marks and shifts the alignment, and there is
+no reason to make one. Generating again is a click, and it also picks up
+anyone who joined since. A torn page is reprinted as a **new run** with new
+codes, so what came back from the hall and what was printed again stay
+tellable apart.
+
+### The reader
+
+A small Python service does the one part that is not Node: registering the
+photograph and measuring the boxes. It is given an image, a sheet code, and the
+geometry to read against. It holds no credentials, opens no database
+connection, and keeps nothing.
+
+```
+Caddy :443  ->  never routes here
+cma-api     ->  127.0.0.1:3002  cma-omr  (register and detect)
+```
+
+Its answer is a state and a confidence per row, or a reason it will not read
+the page. What that means for attendance is decided in Node, by a person.
+
+```
+OMR_SERVICE_URL=http://127.0.0.1:3002
+```
+
+Leave it unset and the OMR path reports itself unavailable, in those words, and
+attendance is entered by hand. That is the fallback, not a failure.
+
+`omr/README.md` covers running, calibrating and self-testing it.
+
+### Thresholds are configuration, not code
+
+An empty box carries paper grain; a ticked one carries a stroke. Between them
+the pipeline says it does not know. Where those two lines sit is a database
+change:
+
+```sql
+INSERT INTO matrix_config (key, value) VALUES ('omr_fill_low', '0.04')
+  ON CONFLICT (key) DO UPDATE SET value = excluded.value;
+```
+
+`omr/calibrate.py` prints where the two clusters actually fall on a batch of
+real photographed sheets, which is the only way to choose them honestly. If the
+clusters overlap, the answer is to change the sheet to say *shade the box*, not
+to squeeze the thresholds together.
+
+### Provenance
+
+Every committed row says where it came from. `attendance.source` is `manual`
+or `omr`; an OMR row points at the scan, which holds the photograph's hash,
+the per-cell measurements, who uploaded it, who confirmed it, and every state
+a person changed from what the machine proposed.
+
+The commit is one transaction holding attendance and audit together, upserted
+on (member, event), so **the same sheet read twice records once**. The review
+screen also warns when a meeting was printed on more pages than have come back.
+
+### The photographs are member data
+
+A photographed sheet carries the names of everyone on that page. The images go
+straight to the private bucket and never through the API, are reached only
+through a short-lived signed URL issued to an officer, and are purged once the
+month they belong to has a finalised snapshot. The hash and the measurements
+stay, which is what an audit needs. `SCAN_PHOTO_MAX_DAYS` purges regardless,
+so a month nobody closes cannot keep names on disk indefinitely.
+
 ## Monthly reports
 
 On the 1st, Africa/Nairobi, the previous month's snapshots are written, the
@@ -349,7 +471,12 @@ with no CORS anywhere.
 ```
 Caddy :443  ->  /api/*  cma-api :3000  ->  Neon, R2
             ->  /*      cma-web :3001
+                        cma-omr :3002  <-  cma-api only, never Caddy
 ```
+
+The sheet reader is a third unit, `deploy/cma-omr.service`. It binds to
+127.0.0.1 and is deliberately absent from the Caddyfile: it authenticates
+nobody, because nobody but the API on the same host is meant to reach it.
 
 `deploy/` holds the systemd units, the Caddyfile and a deploy script;
 `deploy/README.md` has the steps. On the VPS five values differ from local:

@@ -21,7 +21,10 @@
     "backup:run": "tsx scripts/run-backup.ts",
     "backup:verify": "tsx scripts/verify-backups.ts",
     "backup:restore": "tsx scripts/restore-backup.ts",
-    "documents:keygen": "tsx scripts/generate-signing-key.ts"
+    "documents:keygen": "tsx scripts/generate-signing-key.ts",
+    "omr:template": "tsx scripts/print-omr-template.ts",
+    "omr:sample": "tsx scripts/render-omr-sheet.ts",
+    "omr:check": "tsx scripts/check-omr-reader.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1113.0",

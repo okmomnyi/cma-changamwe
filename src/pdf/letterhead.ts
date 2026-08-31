@@ -49,6 +49,14 @@ export interface LetterheadOptions {
     subject?: string;
     /** Shown at the top right, e.g. "August 2026". */
     period?: string;
+    /**
+     * A square code drawn into the top right of the masthead, above the rule.
+     * Attendance sheets put their pointer QR here; the footer stays reserved
+     * for the verification code, as on every other document. The rule and the
+     * body drop to clear it, so nothing overlaps.
+     */
+    headerBadge?: Buffer;
+    headerBadgeSize?: number;
 }
 
 export function today(): string {
@@ -108,23 +116,39 @@ export function drawLetterhead(doc: Doc, opts: LetterheadOptions): number {
     const top = MARGIN;
     drawMark(doc, MARGIN, top, 34);
 
+    const badgeSize = opts.headerBadge ? (opts.headerBadgeSize ?? 56) : 0;
+    const reserved = badgeSize ? badgeSize + 12 : 0;
+    const mastheadWidth = CONTENT_WIDTH - 46 - reserved;
+
     doc.font('Helvetica-Bold').fontSize(15).fillColor(NAVY_DARK)
-        .text(opts.orgName.toUpperCase(), MARGIN + 46, top + 2, { characterSpacing: 0.6 });
+        .text(opts.orgName.toUpperCase(), MARGIN + 46, top + 2, {
+            width: mastheadWidth, characterSpacing: 0.6, lineBreak: false,
+        });
     doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
-        .text('CATHOLIC MEN ASSOCIATION  ·  CHANGAMWE PARISH', MARGIN + 46, top + 20, { characterSpacing: 0.9 });
+        .text('CATHOLIC MEN ASSOCIATION  ·  CHANGAMWE PARISH', MARGIN + 46, top + 20, {
+            width: mastheadWidth, characterSpacing: 0.9, lineBreak: false,
+        });
+
+    if (opts.headerBadge) {
+        doc.image(opts.headerBadge, MARGIN + CONTENT_WIDTH - badgeSize, top, {
+            width: badgeSize, height: badgeSize,
+        });
+    }
 
     if (opts.period) {
         doc.font('Helvetica').fontSize(9).fillColor(MUTED)
-            .text(opts.period, MARGIN, top + 4, { width: CONTENT_WIDTH, align: 'right' });
+            .text(opts.period, MARGIN, top + 4, { width: CONTENT_WIDTH - reserved, align: 'right' });
     }
 
     // Two rules, the thin brass one under the heavier navy, as on the crest.
-    doc.moveTo(MARGIN, top + 42).lineTo(MARGIN + CONTENT_WIDTH, top + 42)
+    // They drop below a header badge rather than run under it.
+    const ruleY = top + Math.max(42, badgeSize + 8);
+    doc.moveTo(MARGIN, ruleY).lineTo(MARGIN + CONTENT_WIDTH, ruleY)
         .lineWidth(1.6).strokeColor(NAVY).stroke();
-    doc.moveTo(MARGIN, top + 45.4).lineTo(MARGIN + CONTENT_WIDTH, top + 45.4)
+    doc.moveTo(MARGIN, ruleY + 3.4).lineTo(MARGIN + CONTENT_WIDTH, ruleY + 3.4)
         .lineWidth(0.7).strokeColor(BRASS).stroke();
 
-    let y = top + 62;
+    let y = ruleY + 20;
     doc.font('Helvetica-Bold').fontSize(17).fillColor(INK).text(opts.title, MARGIN, y);
     y = doc.y + 2;
 

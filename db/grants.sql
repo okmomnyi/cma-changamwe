@@ -58,6 +58,27 @@ BEGIN
     EXECUTE format('GRANT UPDATE (revoked_at, revoked_reason) ON TABLE documents TO %I', app_role);
   END IF;
 
+  -- What was printed is a record of what was printed. A sheet is made once and
+  -- never edited: reprinting makes a new run, so the manifest a scan was read
+  -- against can still be recovered years later.
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'attendance_sheets') THEN
+    EXECUTE format('REVOKE ALL ON TABLE attendance_sheets FROM %I', app_role);
+    EXECUTE format('GRANT SELECT, INSERT ON TABLE attendance_sheets TO %I', app_role);
+  END IF;
+
+  -- A scan carries the provenance of attendance that decides welfare money.
+  -- It moves through its statuses and its image is purged once the month is
+  -- closed, but who uploaded it, what the machine measured and the hash of
+  -- the photograph cannot be rewritten, and no scan can be removed.
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'attendance_scans') THEN
+    EXECUTE format('REVOKE ALL ON TABLE attendance_scans FROM %I', app_role);
+    EXECUTE format('GRANT SELECT, INSERT ON TABLE attendance_scans TO %I', app_role);
+    EXECUTE format(
+      'GRANT UPDATE (status, reject_reason, detection_json, photo_hash, byte_size, '
+      || 'reviewed_by, reviewed_at, committed_at, photo_ref, photo_purged_at) '
+      || 'ON TABLE attendance_scans TO %I', app_role);
+  END IF;
+
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'pgmigrations') THEN
     EXECUTE format('REVOKE ALL ON TABLE pgmigrations FROM %I', app_role);
     EXECUTE format('GRANT SELECT ON TABLE pgmigrations TO %I', app_role);

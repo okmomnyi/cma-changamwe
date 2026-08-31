@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpenCheck, CalendarDays, ClipboardList, Coins, Gauge, HandCoins, LogOut, Menu, ScrollText, ShieldCheck, Table2, User, Users, X, } from 'lucide-react';
+import { BookOpenCheck, CalendarDays, ClipboardList, Coins, Gauge, HandCoins, LogOut, Menu, ScanLine, ScrollText, ShieldCheck, Table2, User, Users, X, } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { officeLabel } from '@/lib/format';
 import { LoadingState } from './ui';
@@ -22,6 +22,7 @@ const ADMIN_NAV = [
     { href: '/admin', label: 'Overview', icon: Gauge },
     { href: '/admin/members', label: 'Members', icon: Users },
     { href: '/admin/events', label: 'Programme', icon: CalendarDays },
+    { href: '/admin/attendance-sheets', label: 'Sheets', icon: ScanLine },
     { href: '/admin/contributions', label: 'Matoleo', icon: Coins },
     { href: '/admin/matrix', label: 'Matrix', icon: Table2 },
     { href: '/admin/welfare', label: 'Welfare', icon: HandCoins },

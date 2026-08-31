@@ -19,6 +19,7 @@ export const KIND_CODES = {
     contributions_statement: 'CON',
     matrix_summary: 'SUM',
     welfare_statement: 'WEL',
+    attendance_sheet: 'ATT',
 } as const;
 
 export type DocumentKind = keyof typeof KIND_CODES;

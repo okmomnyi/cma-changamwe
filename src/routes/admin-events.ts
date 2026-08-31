@@ -198,15 +198,23 @@ adminEventsRouter.delete('/events/:id', async (req, res, next) => {
             const counts = await queryOne<{
                 attendance: string;
                 contributions: string;
+                sheets: string;
                 title: string;
             }>(`SELECT (SELECT count(*) FROM attendance WHERE event_id = e.id)::text AS attendance,
                 (SELECT count(*) FROM contributions WHERE event_id = e.id)::text AS contributions,
+                (SELECT count(*) FROM attendance_sheets WHERE event_id = e.id)::text AS sheets,
                 e.title
          FROM events e WHERE e.id = $1 FOR UPDATE`, [id], client);
             if (!counts)
                 throw notFound('That event could not be found.');
             if (Number(counts.attendance) > 0 || Number(counts.contributions) > 0) {
                 throw conflict('That event already has attendance or contributions recorded, so it cannot be deleted.');
+            }
+            // A printed sheet is a record of what was handed round the hall,
+            // and it names the members it was printed for. Removing the event
+            // under it would leave that record pointing nowhere.
+            if (Number(counts.sheets) > 0) {
+                throw conflict('Attendance sheets have already been printed for that event, so it cannot be deleted.');
             }
             await query(`DELETE FROM events WHERE id = $1`, [id], client);
             await writeAudit(client, {

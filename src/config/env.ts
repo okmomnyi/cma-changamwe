@@ -55,6 +55,25 @@ const schema = z.object({
     // Ed25519 private key, PEM, base64 encoded. Seals every issued document.
     // Generate with: npm run documents:keygen
     DOCUMENT_SIGNING_KEY: z.string().optional(),
+
+    // Phase 9. Photographs of attendance sheets. They carry member names, so
+    // they live in the same private bucket as the photographs, under their own
+    // prefix, and never in anything public.
+    R2_SCANS_PREFIX: z.string().default('scans'),
+
+    // The register-and-detect service. It is reached over the loopback address
+    // and is never exposed publicly: it holds no credentials and is given only
+    // a photograph and the geometry to read it against. Unset means the OMR
+    // path is switched off and attendance is entered by hand, as in Phase 4.
+    OMR_SERVICE_URL: z.string().url().optional(),
+    OMR_SERVICE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(25000),
+
+    // Once the month a meeting falls in has a finalised snapshot, the image
+    // has done its work: the measurements and the hash stay for the audit, and
+    // the photograph is purged. The backstop purges anything older regardless,
+    // so an unclosed month cannot keep member names on disk indefinitely.
+    SCAN_PHOTO_MIN_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    SCAN_PHOTO_MAX_DAYS: z.coerce.number().int().min(1).max(1095).default(180),
 });
 const present = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== undefined && value !== ''));
 const parsed = schema.safeParse(present);

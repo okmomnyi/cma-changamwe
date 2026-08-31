@@ -7,6 +7,7 @@ import { sendPendingReports } from '../comms/batch.js';
 import { sendLeadershipDigest } from '../comms/digest.js';
 import { queryOne } from '../db/pool.js';
 import { runBackup } from '../backup/run.js';
+import { purgeScanPhotos } from '../omr/retention.js';
 
 const CHECK_INTERVAL_MS = 15 * 60000;
 /** Nairobi hour the nightly backup runs at. */
@@ -88,6 +89,16 @@ export function startScheduler(): void {
             }
             catch (err) {
                 logger.error({ err }, 'nightly backup failed; it will be retried on the next tick');
+            }
+
+            // Photographs of attendance sheets carry member names, so they
+            // are purged as soon as the month they belong to is closed. It
+            // runs beside the backup, out of the way of the working day.
+            try {
+                await purgeScanPhotos();
+            }
+            catch (err) {
+                logger.error({ err }, 'purging attendance scan photographs failed; it will be retried on the next tick');
             }
 
             // Reports keep to waking hours, and only once a day.

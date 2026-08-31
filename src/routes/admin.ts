@@ -9,6 +9,7 @@ import { adminEventsRouter } from './admin-events.js';
 import { adminContributionsRouter } from './admin-contributions.js';
 import { adminMatrixRouter } from './admin-matrix.js';
 import { adminWelfareRouter } from './admin-welfare.js';
+import { adminOmrRouter } from './admin-omr.js';
 import { backupStatus } from '../backup/run.js';
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -18,6 +19,7 @@ adminRouter.use(adminEventsRouter);
 adminRouter.use(adminContributionsRouter);
 adminRouter.use(adminMatrixRouter);
 adminRouter.use(adminWelfareRouter);
+adminRouter.use(adminOmrRouter);
 const listQuery = z.object({
     q: z.string().trim().max(120).optional(),
     prayer_house_id: z.string().uuid().optional(),
@@ -157,7 +159,8 @@ adminRouter.get('/events', async (req, res, next) => {
     }
 });
 const auditQuery = listQuery.extend({
-    entity_type: z.enum(['member', 'attendance', 'contribution', 'office', 'user', 'event', 'welfare_claim']).optional(),
+    entity_type: z.enum(['member', 'attendance', 'contribution', 'office', 'user', 'event',
+        'welfare_claim', 'attendance_sheet', 'attendance_scan']).optional(),
 });
 adminRouter.get('/audit-log', async (req, res, next) => {
     try {

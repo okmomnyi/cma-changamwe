@@ -72,6 +72,34 @@ jobs:
           npm run migrate
           rm -f .env
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: omr/requirements.txt
+
+      - name: Install the sheet reader
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r omr/requirements.txt pypdfium2
+
+      # The renderer and the reader are written in different languages against
+      # one description of the page. Nothing catches a disagreement between
+      # them except putting a sheet through both, so CI does exactly that:
+      # render a real sheet, tick known boxes, rough it up, and check every row
+      # comes back with the state it was drawn.
+      - name: Check the renderer and the reader agree about the sheet
+        env:
+          DATABASE_URL: postgres://unused
+          JWT_SECRET: ci-only-secret-that-is-long-enough-32
+          TZ: Africa/Nairobi
+        run: |
+          npm run --silent omr:template > omr/template.json
+          npm run --silent omr:sample -- --pages 1 --out omr/sample.pdf > omr/sample.json
+          code=$(node -p "require('./omr/sample.json').pages[0].sheet_code")
+          cd omr
+          python selftest.py --pdf sample.pdf --template template.json --sheet-code "$code"
+
       - name: Install web dependencies
         run: npm --prefix web ci --no-audit --no-fund
 

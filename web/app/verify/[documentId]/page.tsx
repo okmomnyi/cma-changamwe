@@ -29,6 +29,7 @@ const KIND_NAMES: Record<string, string> = {
     contributions_statement: 'Statement of matoleo',
     matrix_summary: 'Matrix standing',
     welfare_statement: 'Welfare support',
+    attendance_sheet: 'Attendance sheet',
 };
 
 const DETAIL_LABELS: Record<string, string> = {

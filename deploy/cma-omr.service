@@ -1,0 +1,38 @@
+[Unit]
+Description=CMA Changamwe attendance sheet reader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=test
+WorkingDirectory=/home/test/cma-changamwe/omr
+
+# 127.0.0.1 on purpose. The reader authenticates nobody, because nobody but the
+# API on this host is meant to reach it. Caddy never routes to this port, and it
+# must not be added to the Caddyfile.
+ExecStart=/home/test/cma-changamwe/omr/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 3002 --workers 1
+Restart=always
+RestartSec=5
+
+# It holds no credentials, opens no database connection and writes nothing.
+# One image at a time arrives in memory and leaves as a JSON answer.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/home/test/cma-changamwe/omr
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_UNIX
+LockPersonality=true
+MemoryMax=1G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cma-omr
+
+[Install]
+WantedBy=multi-user.target

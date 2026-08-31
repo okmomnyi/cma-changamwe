@@ -97,18 +97,74 @@ export async function deleteObject(key: string): Promise<void> {
         logger.warn({ err, key }, 'could not delete photo object from R2');
     }
 }
-export async function fetchPhotoBytes(key: string): Promise<Buffer | null> {
+
+/**
+ * Photographs of attendance sheets. The same private bucket as the member
+ * photographs, under its own prefix, and a much larger ceiling: a sheet has to
+ * stay legible enough for the registration marks and the pointer code to
+ * survive being photographed in a church hall.
+ *
+ * These images carry member names, so they are treated as the photographs are:
+ * never public, reached only through a short-lived signed URL issued to an
+ * officer, and purged once the month they belong to is closed.
+ */
+const SCAN_PREFIX = env.R2_SCANS_PREFIX.replace(/^\/+|\/+$/g, '') || 'scans';
+export const MAX_SCAN_BYTES = 6000000;
+export const SCAN_CONTENT_TYPE = 'image/jpeg';
+
+export function newScanKey(sheetId: string): string {
+    const shard = createHash('sha256').update(sheetId).digest('hex').slice(0, 2);
+    return `${SCAN_PREFIX}/${shard}/${randomUUID()}.jpg`;
+}
+
+export function isValidScanKey(key: string): boolean {
+    if (!key.startsWith(`${SCAN_PREFIX}/`))
+        return false;
+    return /^[0-9a-f]{2}\/[0-9a-f-]{36}\.jpg$/.test(key.slice(SCAN_PREFIX.length + 1));
+}
+
+export async function presignScanUpload(key: string): Promise<{ url: string; expires_in: number }> {
+    const url = await getSignedUrl(requireClient(), new PutObjectCommand({
+        Bucket: bucket!,
+        Key: key,
+        ContentType: SCAN_CONTENT_TYPE,
+    }), { expiresIn: env.R2_UPLOAD_URL_TTL });
+    return { url, expires_in: env.R2_UPLOAD_URL_TTL };
+}
+
+/** As for a photograph, but with the sheet ceiling. */
+export async function verifyUploadedScan(key: string): Promise<UploadedObject> {
+    const head = await requireClient().send(new HeadObjectCommand({ Bucket: bucket!, Key: key }));
+    const byteSize = Number(head.ContentLength ?? 0);
+    const contentType = head.ContentType ?? '';
+    if (byteSize <= 0)
+        throw badRequest('That photograph did not arrive. Please try again.');
+    if (byteSize > MAX_SCAN_BYTES) {
+        await deleteObject(key);
+        throw badRequest('That photograph is too large. Take it again from the upload screen.');
+    }
+    if (contentType !== SCAN_CONTENT_TYPE) {
+        await deleteObject(key);
+        throw badRequest('That upload was not a JPEG image.');
+    }
+    return { byteSize, contentType };
+}
+
+/** Any object in the bucket, for the server to work on rather than to serve. */
+export async function fetchObjectBytes(key: string): Promise<Buffer | null> {
     if (!client)
         return null;
     try {
-        const result = await client.send(new GetObjectCommand({
-            Bucket: bucket!, Key: key,
-        }));
+        const result = await client.send(new GetObjectCommand({ Bucket: bucket!, Key: key }));
         const bytes = await result.Body?.transformToByteArray();
         return bytes ? Buffer.from(bytes) : null;
     }
     catch (err) {
-        logger.warn({ err, key }, 'could not fetch photo from R2 for the PDF');
+        logger.warn({ err, key }, 'could not fetch object from R2');
         return null;
     }
+}
+
+export async function fetchPhotoBytes(key: string): Promise<Buffer | null> {
+    return fetchObjectBytes(key);
 }

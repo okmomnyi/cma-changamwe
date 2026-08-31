@@ -39,3 +39,10 @@ Thumbs.db
 desktop.ini
 .idea/
 .vscode/
+
+# The sheet reader: its virtualenv, and the scratch files the self-test makes
+omr/.venv/
+omr/__pycache__/
+omr/template.json
+omr/sample.pdf
+omr/sample.json

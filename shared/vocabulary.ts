@@ -63,6 +63,27 @@ export const ATTENDANCE_STATUSES = [
     { value: 'absent', label: 'Absent' },
 ] as const;
 
+/**
+ * How an attendance row came to be recorded. Phase 9 added a second path:
+ * a sheet printed from the register, ticked by hand, then photographed and
+ * read. Manual entry is never withdrawn, so an unreadable sheet cannot stop
+ * attendance being recorded.
+ */
+export const ATTENDANCE_SOURCES = [
+    { value: 'manual', label: 'Entered by hand' },
+    { value: 'omr', label: 'Read off a sheet' },
+] as const;
+
+/** Where a photographed sheet has reached in the pipeline. */
+export const ATTENDANCE_SCAN_STATUSES = [
+    { value: 'uploaded', label: 'Uploaded' },
+    { value: 'registered', label: 'Squared up' },
+    { value: 'detected', label: 'Read, awaiting review' },
+    { value: 'reviewed', label: 'Reviewed' },
+    { value: 'committed', label: 'Committed' },
+    { value: 'rejected', label: 'Rejected' },
+] as const;
+
 export const MEMBERSHIP_STATUSES = [
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
@@ -94,4 +115,6 @@ export type ContributionCategory = (typeof CONTRIBUTION_CATEGORIES)[number]['val
 export type WelfareSupportType = (typeof WELFARE_SUPPORT_TYPES)[number]['value'];
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number]['value'];
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number]['value'];
+export type AttendanceSource = (typeof ATTENDANCE_SOURCES)[number]['value'];
+export type AttendanceScanStatus = (typeof ATTENDANCE_SCAN_STATUSES)[number]['value'];
 export type MatrixStanding = (typeof MATRIX_STANDINGS)[number]['value'];

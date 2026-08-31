@@ -1,0 +1,8 @@
+# Pinned to minor versions: this service is deployed once and left alone, and
+# an unannounced change in how OpenCV thresholds an image would change what the
+# parish's attendance says without anyone touching the code.
+fastapi==0.115.*
+uvicorn[standard]==0.34.*
+python-multipart==0.0.20
+opencv-python-headless==4.11.*
+numpy==2.2.*
