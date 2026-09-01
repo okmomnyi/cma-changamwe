@@ -55,15 +55,15 @@ export default function AttendancePage() {
                 </thead>
                 <tbody>
                   {data.records.map((row) => (<tr key={row.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(row.date)}</td>
-                      <td>{row.title}</td>
-                      <td className="muted">
+                      <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>{formatDate(row.date)}</td>
+                      <td data-label="Event">{row.title}</td>
+                      <td data-label="Type" className="muted">
                         {eventTypeLabel(row.type)}
                         {row.subtype ? ` (${row.subtype})` : ''}
                       </td>
-                      <td><StatusPill status={row.status}/></td>
-                      <td className="muted">{row.reason ?? '--'}</td>
-                      <td>
+                      <td data-label="Status"><StatusPill status={row.status}/></td>
+                      <td data-label="Reason" className="muted">{row.reason ?? '--'}</td>
+                      <td data-label="Counts toward Matrix">
                         
                         {row.counts_for_matrix
                     ? <Pill tone="navy">{matrixItemLabel(row.matrix_item_key)}</Pill>

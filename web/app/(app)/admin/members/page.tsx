@@ -109,16 +109,16 @@ export default function MembersPage() {
                 </thead>
                 <tbody>
                   {data.members.map((m) => (<tr key={m.id}>
-                      <td><Link href={`/admin/members/${m.id}`}>{m.full_name}</Link></td>
-                      <td className="muted">{m.prayer_house}</td>
-                      <td className="muted">{m.mobile_no}</td>
-                      <td className="mono subtle">{m.id_no_masked}</td>
-                      <td>
+                      <td data-label="Name"><Link href={`/admin/members/${m.id}`}>{m.full_name}</Link></td>
+                      <td data-label="Prayer house" className="muted">{m.prayer_house}</td>
+                      <td data-label="Mobile" className="muted">{m.mobile_no}</td>
+                      <td data-label="ID number" className="mono subtle">{m.id_no_masked}</td>
+                      <td data-label="Offices">
                         {m.offices?.length
                     ? m.offices.map((o) => <Pill key={o} tone="navy">{officeLabel(o)}</Pill>)
                     : <span className="subtle small">--</span>}
                       </td>
-                      <td className="muted">{titleCase(m.membership_status)}</td>
+                      <td data-label="Status" className="muted">{titleCase(m.membership_status)}</td>
                     </tr>))}
                 </tbody>
               </table>

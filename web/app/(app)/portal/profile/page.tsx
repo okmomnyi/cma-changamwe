@@ -88,8 +88,8 @@ export default function ProfilePage() {
                 </thead>
                 <tbody>
                   {data!.children.map((child) => (<tr key={child.id}>
-                      <td>{child.name}</td>
-                      <td>{formatDate(child.date_of_birth)}</td>
+                      <td data-label="Name">{child.name}</td>
+                      <td data-label="Date of birth">{formatDate(child.date_of_birth)}</td>
                     </tr>))}
                 </tbody>
               </table>
@@ -119,10 +119,10 @@ export default function ProfilePage() {
                 </thead>
                 <tbody>
                   {data!.offices.map((office) => (<tr key={`${office.office_key}-${office.term_start}`}>
-                      <td>{officeLabel(office.office_key)}</td>
-                      <td>{formatDate(office.term_start)}</td>
-                      <td>{office.term_end ? formatDate(office.term_end) : '--'}</td>
-                      <td>{office.term_end ? <Pill>Past</Pill> : <Pill tone="navy">Currently sitting</Pill>}</td>
+                      <td data-label="Office">{officeLabel(office.office_key)}</td>
+                      <td data-label="Term start">{formatDate(office.term_start)}</td>
+                      <td data-label="Term end">{office.term_end ? formatDate(office.term_end) : '--'}</td>
+                      <td data-label="Status">{office.term_end ? <Pill>Past</Pill> : <Pill tone="navy">Currently sitting</Pill>}</td>
                     </tr>))}
                 </tbody>
               </table>

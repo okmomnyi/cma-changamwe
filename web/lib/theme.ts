@@ -18,6 +18,26 @@ export const THEME_BOOTSTRAP =
     `(function(){try{var t=localStorage.getItem('${THEME_KEY}');`
     + `if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()`;
 
+export type ResolvedTheme = 'light' | 'dark';
+
+/**
+ * The theme actually on screen, which is what a two-state control has to know.
+ *
+ * "System" is a stored preference, not a colour: to decide whether the toggle
+ * should offer the moon or the sun it has to be resolved against what the
+ * device is currently saying.
+ */
+export function resolvedTheme(): ResolvedTheme {
+    const stored = readTheme();
+    if (stored !== 'system') return stored;
+    try {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    catch {
+        return 'light';
+    }
+}
+
 export function readTheme(): Theme {
     try {
         const stored = localStorage.getItem(THEME_KEY);

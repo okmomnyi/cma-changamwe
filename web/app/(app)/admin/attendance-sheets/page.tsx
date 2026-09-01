@@ -143,29 +143,29 @@ export default function AttendanceSheetsPage() {
                             <tbody>
                                 {waiting.data.scans.map((scan) => (
                                     <tr key={scan.id}>
-                                        <td>
+                                        <td data-label="Meeting">
                                             {scan.event_title}
                                             <span className="subtle small" style={{ display: 'block' }}>
                                                 {formatDate(scan.event_date)}
                                             </span>
                                         </td>
-                                        <td className="muted">
+                                        <td data-label="Page" className="muted">
                                             {scan.page_no} of {scan.total_pages}
                                             <span className="subtle small" style={{ display: 'block' }}>
                                                 {scan.sheet_code}
                                             </span>
                                         </td>
-                                        <td>{scan.rows_read}</td>
-                                        <td>
+                                        <td data-label="Rows read">{scan.rows_read}</td>
+                                        <td data-label="Uncertain">
                                             {scan.uncertain > 0
                                                 ? <Pill tone="accent">{scan.uncertain} to check</Pill>
                                                 : <span className="subtle">none</span>}
                                         </td>
-                                        <td className="muted small">
+                                        <td data-label="Photographed" className="muted small">
                                             {formatDateTime(scan.uploaded_at)}
                                             {scan.uploaded_by ? ` by ${scan.uploaded_by}` : ''}
                                         </td>
-                                        <td>
+                                        <td data-label="Review">
                                             <Link className="btn btnPrimary" href={`/admin/attendance-scans/${scan.id}`}>
                                                 Check and record
                                             </Link>
@@ -237,10 +237,10 @@ export default function AttendanceSheetsPage() {
                                     <tbody>
                                         {pages.map((page) => (
                                             <tr key={page.id}>
-                                                <td>{page.page_no} of {page.total_pages}</td>
-                                                <td><code>{page.sheet_code}</code></td>
-                                                <td className="muted">{page.members}</td>
-                                                <td>
+                                                <td data-label="Page">{page.page_no} of {page.total_pages}</td>
+                                                <td data-label="Sheet code"><code>{page.sheet_code}</code></td>
+                                                <td data-label="Names" className="muted">{page.members}</td>
+                                                <td data-label="Photographs">
                                                     {page.latest_scan_id ? (
                                                         <Link href={`/admin/attendance-scans/${page.latest_scan_id}`}>
                                                             {page.committed_scans > 0
@@ -251,7 +251,7 @@ export default function AttendanceSheetsPage() {
                                                         </Link>
                                                     ) : <span className="subtle">None yet</span>}
                                                 </td>
-                                                <td>
+                                                <td data-label="Photograph">
                                                     {status.data?.available ? (
                                                         <SheetScanUpload
                                                             sheetId={page.id}

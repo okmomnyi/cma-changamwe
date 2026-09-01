@@ -77,6 +77,9 @@
     "Liberation Mono", monospace;
 
   --sidebar-width: 15rem;
+  /* Height of the bar that becomes sticky on small screens. Anything else
+     that sticks measures from here rather than from the top of the page. */
+  --app-bar: 0rem;
 
   /* Roles, not shades. Components reach for these; the scales above exist to
      define them once. Each role is free to move independently in dark. */
@@ -341,3 +344,121 @@ table { border-collapse: collapse; width: 100%; }
 
 .spin { animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========================================================================
+   Small screens
+   ========================================================================
+
+   The association is read on phones more than on anything else: a secretary
+   marking a register in a church hall is holding one. Nothing below is a
+   scaled-down desktop layout. Two rules run through it.
+
+   Nothing scrolls sideways. A page that has to be dragged left and right to
+   be read is a page whose right-hand half nobody sees, and on a register that
+   means a column of attendance nobody checks.
+
+   Nothing is smaller than a finger. Touch targets grow on coarse pointers
+   rather than at a width, because the question is what is doing the pointing,
+   not how wide the glass is.
+   ------------------------------------------------------------------------ */
+
+/* Media never widens its parent, whatever its intrinsic size. */
+img, svg, video, canvas { max-width: 100%; }
+
+/* Document numbers, sheet codes, object keys and email addresses are single
+   unbreakable tokens that are wider than a phone. They wrap rather than push
+   the page out. */
+.mono, code { overflow-wrap: anywhere; }
+
+@media (max-width: 60rem) { :root { --app-bar: 3.5rem; } }
+
+@media (pointer: coarse) {
+  .btn { height: 2.75rem; }
+  .input { height: 2.75rem; }
+  .table td[data-label] input[type='radio'],
+  .table td[data-label] input[type='checkbox'] { width: 1.15rem; height: 1.15rem; }
+}
+
+@media (max-width: 46rem) {
+  /* Below 16px iOS zooms the whole page in on focus and leaves it there, which
+     is how a form ends up needing sideways scrolling it never asked for. */
+  .input { font-size: 1rem; }
+
+  .cardHeader { padding: var(--space-4); }
+  .cardBody { padding: var(--space-4); }
+  .cardTight { padding: var(--space-3) var(--space-4); }
+
+  .cardHeader {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  /* ---- tables become cards ----------------------------------------------
+
+     A table is a shape for comparing rows across columns, which needs width a
+     phone does not have. Below this width each row becomes its own small card
+     and each cell carries its column name, so the same facts are read down
+     instead of across. The header row is what turns into those labels, so it
+     is hidden rather than dropped: `data-label` on the cell repeats it.
+
+     Cells without a label still render, plainly. That way a table added later
+     degrades to something readable rather than to something wrong. */
+
+  .table, .table thead, .table tbody, .table tr, .table td { display: block; }
+  .table thead { display: none; }
+
+  .table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: var(--space-1) var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  .table tbody tr:last-child { margin-bottom: 0; }
+  .table tbody tr:hover { background: var(--surface); }
+
+  .table td {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .table tbody tr td:last-child { border-bottom: 0; }
+
+  .table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 34%) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: baseline;
+    /* A column of figures is right-aligned so its digits line up with the ones
+       above. Read down a card there is no column to line up with, and the
+       alignment only pushes the value away from the label naming it. */
+    text-align: left;
+  }
+  .table td[data-label]::before {
+    content: attr(data-label);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    overflow-wrap: anywhere;
+  }
+  /* The value side of the pair, which is where the long strings live. */
+  .table td[data-label] > * { min-width: 0; }
+
+  /* A cell holding something to fill in wants the whole width, with its label
+     above rather than beside it. Matched on what the cell contains rather than
+     on what its column is called, so it keeps holding when a column is
+     renamed. A browser without :has() falls back to the pair layout, which is
+     cramped but still correct. */
+  .table td[data-label]:has(fieldset),
+  .table td[data-label]:has(input:not([type='checkbox']):not([type='radio'])),
+  .table td[data-label]:has(select),
+  .table td[data-label]:has(textarea) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  /* Nothing left to scroll once the rows are cards. */
+  .tableScroll { overflow-x: visible; }
+}

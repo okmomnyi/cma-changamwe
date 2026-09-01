@@ -162,14 +162,14 @@ export default function EventRegisterPage({ params }: {
               {data!.register.map((row) => {
             const mark = marks[row.member_id] ?? { status: 'present' as Status, reason: '' };
             return (<tr key={row.member_id}>
-                    <td>
+                    <td data-label="Member">
                       {row.full_name}
                       {row.status ? (<span className="subtle small" style={{ display: 'block' }}>
                           already recorded as {row.status}
                         </span>) : null}
                     </td>
-                    <td className="muted">{row.prayer_house}</td>
-                    <td>
+                    <td data-label="Prayer house" className="muted">{row.prayer_house}</td>
+                    <td data-label="Status">
                       <fieldset className={styles.statusGroup}>
                         <legend className="srOnly">Attendance for {row.full_name}</legend>
                         {(['present', 'apology', 'absent'] as Status[]).map((status) => (<label key={status} className={styles.statusOption}>
@@ -178,7 +178,7 @@ export default function EventRegisterPage({ params }: {
                           </label>))}
                       </fieldset>
                     </td>
-                    <td>
+                    <td data-label="Reason (apology only)">
                       <label className="srOnly" htmlFor={`reason-${row.member_id}`}>
                         Reason for {row.full_name}
                       </label>

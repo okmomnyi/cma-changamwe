@@ -74,14 +74,14 @@ export default function OfficesPage() {
                 </thead>
                 <tbody>
                   {parish.map((o) => (<tr key={o.id}>
-                      <td>{o.office_label ?? officeLabel(o.office_key)}</td>
-                      <td><Link href={`/admin/members/${o.member_id}`}>{o.full_name}</Link></td>
-                      <td>{formatDate(o.term_start)}</td>
-                      <td>
+                      <td data-label="Office">{o.office_label ?? officeLabel(o.office_key)}</td>
+                      <td data-label="Holder"><Link href={`/admin/members/${o.member_id}`}>{o.full_name}</Link></td>
+                      <td data-label="Since">{formatDate(o.term_start)}</td>
+                      <td data-label="Term due">
                         {formatDate(o.term_due_on)}
                         {o.term_overdue ? <> <Pill>Overdue</Pill></> : null}
                       </td>
-                      <td>
+                      <td data-label="Grants admin">
                         {o.confers_admin
                     ? <Pill tone="accent">Administrator</Pill>
                     : <span className="subtle small">No</span>}
@@ -108,11 +108,11 @@ export default function OfficesPage() {
                 </thead>
                 <tbody>
                   {houses.map((o) => (<tr key={o.id}>
-                      <td>{o.prayer_house ?? '--'}</td>
-                      <td>{o.office_label ?? officeLabel(o.office_key)}</td>
-                      <td><Link href={`/admin/members/${o.member_id}`}>{o.full_name}</Link></td>
-                      <td>{formatDate(o.term_start)}</td>
-                      <td>
+                      <td data-label="Prayer house">{o.prayer_house ?? '--'}</td>
+                      <td data-label="Office">{o.office_label ?? officeLabel(o.office_key)}</td>
+                      <td data-label="Holder"><Link href={`/admin/members/${o.member_id}`}>{o.full_name}</Link></td>
+                      <td data-label="Since">{formatDate(o.term_start)}</td>
+                      <td data-label="Term due">
                         {formatDate(o.term_due_on)}
                         {o.term_overdue ? <> <Pill>Overdue</Pill></> : null}
                       </td>
@@ -138,11 +138,11 @@ export default function OfficesPage() {
                 </thead>
                 <tbody>
                   {past.map((o) => (<tr key={o.id}>
-                      <td>{o.scope === 'prayer_house' ? (o.prayer_house ?? 'Prayer house') : 'Parish'}</td>
-                      <td>{o.office_label ?? officeLabel(o.office_key)}</td>
-                      <td><Link href={`/admin/members/${o.member_id}`}>{o.full_name}</Link></td>
-                      <td>{formatDate(o.term_start)}</td>
-                      <td>{formatDate(o.term_end)}</td>
+                      <td data-label="Level">{o.scope === 'prayer_house' ? (o.prayer_house ?? 'Prayer house') : 'Parish'}</td>
+                      <td data-label="Office">{o.office_label ?? officeLabel(o.office_key)}</td>
+                      <td data-label="Holder"><Link href={`/admin/members/${o.member_id}`}>{o.full_name}</Link></td>
+                      <td data-label="From">{formatDate(o.term_start)}</td>
+                      <td data-label="To">{formatDate(o.term_end)}</td>
                     </tr>))}
                 </tbody>
               </table>

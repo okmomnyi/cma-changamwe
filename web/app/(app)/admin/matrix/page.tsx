@@ -105,21 +105,21 @@ export default function AdminMatrixPage() {
               </thead>
               <tbody>
                 {data.members.map((row) => (<tr key={row.member_id}>
-                    <td><Link href={`/admin/members/${row.member_id}`}>{row.full_name}</Link></td>
-                    <td className="muted">{row.prayer_house}</td>
-                    <td className="numeric">{row.spirituality_score.toFixed(2)}</td>
-                    <td className="numeric">{row.financial_score.toFixed(2)}</td>
-                    <td className="numeric">
+                    <td data-label="Member"><Link href={`/admin/members/${row.member_id}`}>{row.full_name}</Link></td>
+                    <td data-label="Prayer house" className="muted">{row.prayer_house}</td>
+                    <td data-label="Spirituality" className="numeric">{row.spirituality_score.toFixed(2)}</td>
+                    <td data-label="Financial" className="numeric">{row.financial_score.toFixed(2)}</td>
+                    <td data-label="Total" className="numeric">
                       <strong>{row.total_score.toFixed(2)}</strong>
                       <span className="subtle small"> / {row.attainable_total.toFixed(0)}</span>
                     </td>
-                    <td>
+                    <td data-label="Standing">
                       <StandingBadge standing={row.standing}/>
                       {!row.gate_passed && row.gate_reasons.length > 0 ? (<span className="subtle small" style={{ display: 'block', marginTop: '0.25rem' }}>
                           {row.gate_reasons[0]}
                         </span>) : null}
                     </td>
-                    <td>
+                    <td data-label="Report">
                       <DownloadButton url={`/api/exports/admin/members/${row.member_id}/matrix.pdf`} filename={`${row.full_name.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}-matrix.pdf`} label="PDF" variant="btnGhost"/>
                     </td>
                   </tr>))}

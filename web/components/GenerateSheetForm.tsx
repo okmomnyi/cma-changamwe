@@ -249,7 +249,7 @@ export function GenerateSheetForm({ onGenerated }: { onGenerated: () => void }) 
                                 <tbody>
                                     {members.data.members.map((member) => (
                                         <tr key={member.id}>
-                                            <td>
+                                            <td data-label="Print">
                                                 <input
                                                     type="checkbox"
                                                     checked={!excluded.has(member.id)}
@@ -257,7 +257,7 @@ export function GenerateSheetForm({ onGenerated }: { onGenerated: () => void }) 
                                                     aria-label={`Print ${member.full_name} on the sheet`}
                                                 />
                                             </td>
-                                            <td>{member.full_name}</td>
+                                            <td data-label="Member">{member.full_name}</td>
                                         </tr>
                                     ))}
                                 </tbody>

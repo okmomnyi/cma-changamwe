@@ -56,10 +56,26 @@ export function AppShell({ children }: {
         router.replace('/sign-in');
     }
     return (<div className={styles.shell}>
-      <button type="button" className={`btn btnGhost ${styles.navToggle}`} onClick={() => setNavOpen((open) => !open)} aria-expanded={navOpen} aria-controls="primary-navigation">
-        {navOpen ? <X size={18} aria-hidden="true"/> : <Menu size={18} aria-hidden="true"/>}
-        Menu
-      </button>
+      {/*
+        * On a phone the sidebar is behind a menu, so the two things wanted
+        * most often from it are lifted out into a bar that is always there:
+        * where you are, and the light. Everything else waits behind the menu.
+        */}
+      <header className={styles.topBar}>
+        <Link href={isAdminArea ? '/admin' : '/portal'} className={styles.topBrand}>
+          <span className={styles.mark} aria-hidden="true"/>
+          <span className={styles.topBrandName}>
+            {isAdminArea ? 'Administration' : 'Member portal'}
+          </span>
+        </Link>
+        <div className="row">
+          <ThemeToggle/>
+          <button type="button" className={`btn btnSecondary ${styles.navToggle}`} onClick={() => setNavOpen((open) => !open)} aria-expanded={navOpen} aria-controls="primary-navigation">
+            {navOpen ? <X size={18} aria-hidden="true"/> : <Menu size={18} aria-hidden="true"/>}
+            Menu
+          </button>
+        </div>
+      </header>
 
       <aside id="primary-navigation" className={`${styles.sidebar} ${navOpen ? styles.sidebarOpen : ''}`}>
         <Link href={isAdminArea ? '/admin' : '/portal'} className={styles.brand}>
@@ -107,7 +123,8 @@ export function AppShell({ children }: {
               <LogOut size={15} aria-hidden="true"/>
               Sign out
             </button>
-            <ThemeToggle onDark/>
+            {/* The bar above carries this on a phone, so it is not offered twice. */}
+            <span className={styles.sidebarTheme}><ThemeToggle onDark/></span>
           </div>
         </div>
       </aside>

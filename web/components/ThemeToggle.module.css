@@ -1,44 +1,50 @@
-.group {
+/*
+ * A single square icon button. It sits in the sidebar foot on a navy ground and
+ * in the masthead on the page ground, so it takes its colours from whichever it
+ * is given rather than assuming one.
+ */
+
+.toggle {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-sunken);
-}
-
-.option {
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
   padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-subtle);
-  cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-.option:hover { color: var(--text); }
-
-.selected {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   background: var(--surface);
-  color: var(--brand-fg);
-  box-shadow: var(--shadow-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
-/* The sidebar and the landing footer stay navy in both themes, so the control
-   sitting on them needs its own contrast rather than the page tokens. */
-.onDark {
-  border-color: rgb(255 255 255 / 0.16);
-  background: rgb(0 0 0 / 0.22);
+.toggle:hover {
+  background: var(--hover);
+  color: var(--text);
 }
-.onDark .option { color: var(--navy-100); opacity: 0.7; }
-.onDark .option:hover { opacity: 1; }
-.onDark .selected {
-  background: rgb(255 255 255 / 0.14);
+
+.toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* On the navy sidebar, where the page tokens would disappear into the ground. */
+.onDark {
+  background: transparent;
+  border-color: rgb(255 255 255 / 0.18);
+  color: var(--navy-100);
+}
+
+.onDark:hover {
+  background: var(--navy-700);
   color: var(--white);
-  opacity: 1;
-  box-shadow: none;
+}
+
+.onDark:focus-visible { outline-color: var(--brass-500); }
+
+/* A finger is not a mouse pointer. */
+@media (pointer: coarse) {
+  .toggle { width: 2.75rem; height: 2.75rem; }
 }

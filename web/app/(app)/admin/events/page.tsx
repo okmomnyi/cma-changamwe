@@ -68,23 +68,23 @@ export default function EventsPage() {
                 </thead>
                 <tbody>
                   {data.events.map((e) => (<tr key={e.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(e.date)}</td>
-                      <td>
+                      <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>{formatDate(e.date)}</td>
+                      <td data-label="Event">
                         <Link href={`/admin/events/${e.id}`}>{e.title}</Link>
                         {e.novena_series_id ? (<span className="subtle small" style={{ display: 'block' }}>
                             Part of a novena series
                           </span>) : null}
                       </td>
-                      <td className="muted">
+                      <td data-label="Type" className="muted">
                         {eventTypeLabel(e.type)}{e.subtype ? ` (${e.subtype})` : ''}
                       </td>
-                      <td>
+                      <td data-label="Matrix item">
                         {e.matrix_item_key
                     ? <Pill tone="navy">{matrixItemLabel(e.matrix_item_key)}</Pill>
                     : <span className="subtle small">Not scored</span>}
                       </td>
-                      <td className="numeric muted">{e.attendance_recorded}</td>
-                      <td className="numeric muted">{e.present_or_apology}</td>
+                      <td data-label="Register" className="numeric muted">{e.attendance_recorded}</td>
+                      <td data-label="Present or apology" className="numeric muted">{e.present_or_apology}</td>
                     </tr>))}
                 </tbody>
               </table>

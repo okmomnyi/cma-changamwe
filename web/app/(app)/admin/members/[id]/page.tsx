@@ -146,10 +146,10 @@ export default function MemberDetailPage({ params }: {
                 </thead>
                 <tbody>
                   {data!.offices.map((o) => (<tr key={`${o.office_key}-${o.term_start}`}>
-                      <td>{officeLabel(o.office_key)}</td>
-                      <td>{formatDate(o.term_start)}</td>
-                      <td>{o.term_end ? formatDate(o.term_end) : '--'}</td>
-                      <td>{o.term_end ? <Pill>Closed</Pill> : <Pill tone="navy">Sitting</Pill>}</td>
+                      <td data-label="Office">{officeLabel(o.office_key)}</td>
+                      <td data-label="From">{formatDate(o.term_start)}</td>
+                      <td data-label="To">{o.term_end ? formatDate(o.term_end) : '--'}</td>
+                      <td data-label="Status">{o.term_end ? <Pill>Closed</Pill> : <Pill tone="navy">Sitting</Pill>}</td>
                     </tr>))}
                 </tbody>
               </table>
@@ -162,7 +162,7 @@ export default function MemberDetailPage({ params }: {
               <table className="table">
                 <thead><tr><th scope="col">Name</th><th scope="col">Date of birth</th></tr></thead>
                 <tbody>
-                  {data!.children.map((c) => (<tr key={c.id}><td>{c.name}</td><td>{formatDate(c.date_of_birth)}</td></tr>))}
+                  {data!.children.map((c) => (<tr key={c.id}><td data-label="Name">{c.name}</td><td data-label="Date of birth">{formatDate(c.date_of_birth)}</td></tr>))}
                 </tbody>
               </table>
             </div>)}
@@ -180,10 +180,10 @@ export default function MemberDetailPage({ params }: {
                 </thead>
                 <tbody>
                   {data!.recent_attendance.map((a, i) => (<tr key={`${a.date}-${a.title}-${i}`}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(a.date)}</td>
-                      <td>{a.title}</td>
-                      <td><StatusPill status={a.status}/></td>
-                      <td className="muted">{a.reason ?? '--'}</td>
+                      <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>{formatDate(a.date)}</td>
+                      <td data-label="Event">{a.title}</td>
+                      <td data-label="Status"><StatusPill status={a.status}/></td>
+                      <td data-label="Reason" className="muted">{a.reason ?? '--'}</td>
                     </tr>))}
                 </tbody>
               </table>
@@ -202,9 +202,9 @@ export default function MemberDetailPage({ params }: {
                 </thead>
                 <tbody>
                   {data!.recent_contributions.map((c, i) => (<tr key={`${c.date}-${c.category}-${i}`}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(c.date)}</td>
-                      <td>{contributionLabel(c.category)}</td>
-                      <td className="numeric">{formatKes(c.amount)}</td>
+                      <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>{formatDate(c.date)}</td>
+                      <td data-label="Category">{contributionLabel(c.category)}</td>
+                      <td data-label="Amount" className="numeric">{formatKes(c.amount)}</td>
                     </tr>))}
                 </tbody>
               </table>

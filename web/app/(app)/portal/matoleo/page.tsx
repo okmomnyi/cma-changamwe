@@ -48,9 +48,9 @@ export default function MatoleoPage() {
                   </thead>
                   <tbody>
                     {data.by_category.map((row) => (<tr key={row.category}>
-                        <td>{contributionLabel(row.category)}</td>
-                        <td className="numeric muted">{row.n}</td>
-                        <td className="numeric">{formatKes(row.total)}</td>
+                        <td data-label="Category">{contributionLabel(row.category)}</td>
+                        <td data-label="Entries" className="numeric muted">{row.n}</td>
+                        <td data-label="Total" className="numeric">{formatKes(row.total)}</td>
                       </tr>))}
                   </tbody>
                 </table>
@@ -78,17 +78,17 @@ export default function MatoleoPage() {
                     </thead>
                     <tbody>
                       {data.records.map((row) => (<tr key={row.id}>
-                          <td style={{ whiteSpace: 'nowrap' }}>{formatDate(row.date)}</td>
-                          <td>{contributionLabel(row.category)}</td>
-                          <td className="muted">
+                          <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>{formatDate(row.date)}</td>
+                          <td data-label="Category">{contributionLabel(row.category)}</td>
+                          <td data-label="Applies to" className="muted">
                             {row.contribution_month
                         ? formatMonth(row.contribution_month)
                         : row.affiliation_year
                             ? `Year ${row.affiliation_year}`
                             : '--'}
                           </td>
-                          <td className="muted">{row.event_title ?? '--'}</td>
-                          <td className="numeric">{formatKes(row.amount)}</td>
+                          <td data-label="Event" className="muted">{row.event_title ?? '--'}</td>
+                          <td data-label="Amount" className="numeric">{formatKes(row.amount)}</td>
                         </tr>))}
                     </tbody>
                   </table>

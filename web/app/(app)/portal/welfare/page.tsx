@@ -72,7 +72,7 @@ export default function PortalWelfarePage() {
             </thead>
             <tbody>
               {claims.map((claim) => (<tr key={claim.id}>
-                <td>
+                <td data-label="Support">
                   {SUPPORT_LABELS[claim.support_type] ?? titleCase(claim.support_type)}
                   {claim.subject_name ? (
                     <span className="subtle small" style={{ display: 'block' }}>for {claim.subject_name}</span>
@@ -81,16 +81,16 @@ export default function PortalWelfarePage() {
                     <span className="subtle small" style={{ display: 'block' }}>{claim.event_title}</span>
                   ) : null}
                 </td>
-                <td className="numeric">{formatKes(claim.amount)}</td>
-                <td className="muted small">
+                <td data-label="Amount" className="numeric">{formatKes(claim.amount)}</td>
+                <td data-label="Month used" className="muted small">
                   {claim.period ? formatMonth(`${claim.period}-01`) : 'Not yet decided'}
                 </td>
-                <td>
+                <td data-label="Status">
                   <Pill tone={claim.status === 'paid' ? 'navy' : 'neutral'}>
                     {claim.status === 'cancelled' ? 'withdrawn' : claim.status}
                   </Pill>
                 </td>
-                <td className="muted small">
+                <td data-label="Date" className="muted small">
                   {formatDate(claim.paid_at ?? claim.decided_at ?? claim.requested_at)}
                 </td>
               </tr>))}

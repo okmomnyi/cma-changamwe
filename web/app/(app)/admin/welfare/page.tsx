@@ -107,11 +107,11 @@ export default function WelfarePage() {
             </thead>
             <tbody>
               {data.claims.map((claim) => (<tr key={claim.id}>
-                <td>
+                <td data-label="Member">
                   <Link href={`/admin/members/${claim.member_id}`}>{claim.full_name}</Link>
                   <span className="subtle small" style={{ display: 'block' }}>{claim.prayer_house}</span>
                 </td>
-                <td>
+                <td data-label="Support">
                   {SUPPORT_LABELS[claim.support_type] ?? titleCase(claim.support_type)}
                   {claim.subject_name ? (
                     <span className="subtle small" style={{ display: 'block' }}>for {claim.subject_name}</span>
@@ -125,8 +125,8 @@ export default function WelfarePage() {
                     </span>
                   ) : null}
                 </td>
-                <td className="numeric">{formatKes(claim.amount)}</td>
-                <td>
+                <td data-label="Amount" className="numeric">{formatKes(claim.amount)}</td>
+                <td data-label="Standing relied on">
                   {claim.period ? (<>
                     <span className="small">{formatMonth(`${claim.period}-01`)}</span>
                     <span className="subtle small" style={{ display: 'block' }}>
@@ -135,7 +135,7 @@ export default function WelfarePage() {
                     </span>
                   </>) : <span className="subtle small">Not yet decided</span>}
                 </td>
-                <td>
+                <td data-label="Status">
                   <Pill tone={STATUS_TONE[claim.status] ?? 'neutral'}>
                     {claim.status === 'cancelled' ? 'withdrawn' : claim.status}
                   </Pill>
@@ -151,7 +151,7 @@ export default function WelfarePage() {
                     </span>
                   ) : null}
                 </td>
-                <td><ClaimDecision claim={claim} onDone={reload}/></td>
+                <td data-label="Action"><ClaimDecision claim={claim} onDone={reload}/></td>
               </tr>))}
             </tbody>
           </table>

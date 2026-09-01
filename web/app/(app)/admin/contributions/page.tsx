@@ -176,15 +176,15 @@ export default function ContributionsPage() {
               </thead>
               <tbody>
                 {list.data.contributions.map((row) => (<tr key={row.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(row.date)}</td>
-                    <td>{row.full_name}</td>
-                    <td>{contributionLabel(row.category)}</td>
-                    <td className="muted">
+                    <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>{formatDate(row.date)}</td>
+                    <td data-label="Member">{row.full_name}</td>
+                    <td data-label="Category">{contributionLabel(row.category)}</td>
+                    <td data-label="Applies to" className="muted">
                       {row.contribution_month ? formatMonth(row.contribution_month)
                     : row.affiliation_year ? `Year ${row.affiliation_year}`
                         : row.event_title ?? '--'}
                     </td>
-                    <td className="numeric">{formatKes(row.amount)}</td>
+                    <td data-label="Amount" className="numeric">{formatKes(row.amount)}</td>
                   </tr>))}
               </tbody>
             </table>

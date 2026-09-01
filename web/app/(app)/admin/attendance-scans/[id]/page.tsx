@@ -312,8 +312,8 @@ export default function ScanReviewPage({ params }: { params: Promise<{ id: strin
                                             ?? { status: row.proposed, reason: '' };
                                         return (
                                             <tr key={row.member_id} className={row.uncertain ? styles.uncertain : undefined}>
-                                                <td className={styles.measure}>{row.serial}</td>
-                                                <td>
+                                                <td data-label="No." className={styles.measure}>{row.serial}</td>
+                                                <td data-label="Member">
                                                     {row.full_name}
                                                     <span className="subtle small" style={{ display: 'block' }}>
                                                         {row.prayer_house}
@@ -322,7 +322,7 @@ export default function ScanReviewPage({ params }: { params: Promise<{ id: strin
                                                             : ''}
                                                     </span>
                                                 </td>
-                                                <td className={styles.measure}>
+                                                <td data-label="What was read" className={styles.measure}>
                                                     {row.detected_state
                                                         ? DETECTED_LABEL[row.detected_state]
                                                         : 'Not read'}
@@ -335,7 +335,7 @@ export default function ScanReviewPage({ params }: { params: Promise<{ id: strin
                                                             : ''}
                                                     </span>
                                                 </td>
-                                                <td>
+                                                <td data-label="Attendance">
                                                     <fieldset className={styles.statusGroup} disabled={committed}>
                                                         <legend className="srOnly">
                                                             Attendance for {row.full_name}
@@ -357,7 +357,7 @@ export default function ScanReviewPage({ params }: { params: Promise<{ id: strin
                                                         ))}
                                                     </fieldset>
                                                 </td>
-                                                <td>
+                                                <td data-label="Reason (apology only)">
                                                     <label className="srOnly" htmlFor={`reason-${row.member_id}`}>
                                                         Reason for {row.full_name}
                                                     </label>

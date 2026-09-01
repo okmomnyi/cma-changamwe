@@ -35,7 +35,7 @@
 
 .detailGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
   gap: var(--space-4) var(--space-5);
   margin: 0;
 }
@@ -45,7 +45,7 @@
 
 .statGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -81,3 +81,20 @@
 }
 
 .demoNotice svg { flex-shrink: 0; margin-top: 0.15em; }
+
+/* ---- phones -------------------------------------------------------------
+   A page heading and its actions stop competing for one line: the heading
+   takes the width and the buttons sit under it, full width, where a thumb
+   expects them. */
+
+@media (max-width: 46rem) {
+  .pageHeader { margin-bottom: var(--space-4); gap: var(--space-3); }
+  .pageHeader > :global(.row) { width: 100%; flex-wrap: wrap; }
+  .pageHeader > :global(.row) > :global(.btn) { flex: 1 1 auto; }
+
+  .state { padding: var(--space-6) var(--space-4); }
+  .stat { padding: var(--space-3) var(--space-4); }
+  .statValue { font-size: var(--text-lg); }
+  .statGrid { gap: var(--space-3); }
+  .detailGrid { gap: var(--space-3) var(--space-4); }
+}

@@ -418,7 +418,7 @@ export default async function LandingPage() {
               </p>
             </div>
 
-            <nav aria-label="This site">
+            <nav aria-label="This site" className={styles.siteNav}>
               <h3>This site</h3>
               <ul>
                 <li><a href="#about">About the association</a></li>
