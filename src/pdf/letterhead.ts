@@ -176,21 +176,38 @@ export function ensureSpace(doc: Doc, y: number, needed: number): number {
     return MARGIN;
 }
 
-/** A section heading with a hairline beneath it. */
-export function sectionHeading(doc: Doc, text: string, y?: number): number {
+/**
+ * A section heading with a hairline beneath it.
+ *
+ * `width` narrows the rule, for a block that shares its line with something to
+ * the right of it such as a photograph. It defaults to the full content width,
+ * which is what every section that owns its line wants.
+ */
+export function sectionHeading(doc: Doc, text: string, y?: number, width = CONTENT_WIDTH): number {
     const top = y ?? doc.y;
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(BRASS)
         .text(text.toUpperCase(), MARGIN, top, { characterSpacing: 0.8 });
     const ruleY = doc.y + 3;
-    doc.moveTo(MARGIN, ruleY).lineTo(MARGIN + CONTENT_WIDTH, ruleY)
+    doc.moveTo(MARGIN, ruleY).lineTo(MARGIN + width, ruleY)
         .lineWidth(0.5).strokeColor(HAIRLINE).stroke();
     return ruleY + 9;
 }
 
-/** A label above its value, two to a row. `lead` is the space after each row. */
-export function fieldGrid(doc: Doc, pairs: Array<[string, string]>, startY: number, columns = 2, lead = 9): number {
+/**
+ * A label above its value, two to a row. `lead` is the space after each row,
+ * and `width` narrows the block for the same reason as above: a long value
+ * beside a photograph has to wrap before it reaches the frame, not run under it.
+ */
+export function fieldGrid(
+    doc: Doc,
+    pairs: Array<[string, string]>,
+    startY: number,
+    columns = 2,
+    lead = 9,
+    width = CONTENT_WIDTH,
+): number {
     const gap = 14;
-    const colWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns;
+    const colWidth = (width - gap * (columns - 1)) / columns;
     let y = startY;
 
     for (let i = 0; i < pairs.length; i += columns) {

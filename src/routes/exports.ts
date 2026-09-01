@@ -126,6 +126,10 @@ async function issueBiodata(memberId: string, issuedBy: string) {
             prayer_house: data.member.prayer_house,
             children_listed: data.children.length,
             membership: data.member.membership_status,
+            // Whether the picture on the page came from the register or was
+            // stapled on afterwards. Someone checking a form against this can
+            // tell the two apart.
+            photograph: data.photo ? 'printed from the register' : 'to be affixed',
         },
         issuedBy,
     }, (doc) => drawBiodata(doc, data));

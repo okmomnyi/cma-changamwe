@@ -40,6 +40,86 @@ export interface BiodataChild {
     date_of_birth: string | null;
 }
 
+/**
+ * The side of the photograph frame, and the gap between it and the fields.
+ *
+ * 80pt is 28mm, close enough to a passport photograph to staple one over, and
+ * chosen against the height of the four Personal fields beside it: the frame
+ * only costs the form vertical space to the extent it runs deeper than they do.
+ */
+const PHOTO_SIZE = 80;
+const PHOTO_GAP = 16;
+
+/**
+ * The photograph panel, which is on every bio-data whether or not the
+ * association holds a picture of the member.
+ *
+ * A bio-data is used to know who somebody is. Printing one with no photograph
+ * and no space for one leaves the reader unable to tell whether the picture was
+ * left off on purpose, lost, or never taken. So the frame is always there: with
+ * the photograph in it when there is one, and asking for one to be attached
+ * when there is not. On paper that is the familiar box you staple a passport
+ * photo into, which is what the parish has to do until the register carries
+ * pictures of its own.
+ *
+ * Returns the height it used, including any caption, so the block beside it
+ * knows what it has to clear.
+ */
+function drawPhotoPanel(doc: Doc, x: number, y: number, photo: Buffer | null): number {
+    const size = PHOTO_SIZE;
+    let printed = false;
+
+    doc.save();
+    doc.roundedRect(x, y, size, size, 3).fillColor('#F8F6F3').fill();
+
+    if (photo) {
+        // Clipped to the frame, so a photograph takes the same rounded corners
+        // as the empty box rather than sitting square inside it. The restore is
+        // unconditional: a clip left in place by a throw part way through would
+        // blank everything drawn after it on the page.
+        doc.save();
+        try {
+            doc.roundedRect(x, y, size, size, 3).clip();
+            doc.image(photo, x, y, { fit: [size, size], align: 'center', valign: 'center' });
+            printed = true;
+        }
+        catch {
+            // A photograph that will not decode must not stop the document. The
+            // placeholder below prints instead, so the page says a picture is
+            // missing rather than quietly closing the gap.
+        }
+        finally {
+            doc.restore();
+        }
+    }
+
+    if (!printed) {
+        // A head and shoulders, drawn rather than loaded, so no asset ships.
+        // It sits high in the frame to leave the foot of the box for the words.
+        const cx = x + size / 2;
+        doc.fillColor('#DCD7CF');
+        doc.circle(cx, y + size * 0.32, size * 0.12).fill();
+        doc.moveTo(cx - size * 0.21, y + size * 0.65)
+            .bezierCurveTo(
+                cx - size * 0.21, y + size * 0.47,
+                cx + size * 0.21, y + size * 0.47,
+                cx + size * 0.21, y + size * 0.65)
+            .closePath().fill();
+
+        // Inside the frame, not under it. A caption below would add its height
+        // to the block and push the signatures onto a second sheet.
+        doc.font('Helvetica').fontSize(5.5).fillColor(SUBTLE)
+            .text('AFFIX A PASSPORT PHOTOGRAPH', x + 4, y + size - 18, {
+                width: size - 8, align: 'center', characterSpacing: 0.3,
+            });
+    }
+
+    doc.roundedRect(x, y, size, size, 3).lineWidth(0.6).strokeColor(RULE).stroke();
+    doc.restore();
+
+    return size;
+}
+
 export function drawBiodata(doc: Doc, data: {
     member: BiodataMember;
     children: BiodataChild[];
@@ -55,34 +135,24 @@ export function drawBiodata(doc: Doc, data: {
         subtitle: `${value(member.prayer_house)} prayer house  ·  Commissioned ${formatDate(member.created_at)}`,
     });
 
-    // The photograph sits to the right of the first block, if there is one.
-    const photoWidth = 84;
-    const photoHeight = 84;
-    let textWidth = CONTENT_WIDTH;
-    if (photo) {
-        try {
-            doc.image(photo, MARGIN + CONTENT_WIDTH - photoWidth, y, {
-                fit: [photoWidth, photoHeight], align: 'center', valign: 'center',
-            });
-            doc.rect(MARGIN + CONTENT_WIDTH - photoWidth, y, photoWidth, photoHeight)
-                .lineWidth(0.6).strokeColor(RULE).stroke();
-            textWidth = CONTENT_WIDTH - photoWidth - 16;
-        }
-        catch {
-            // A photograph that will not decode must not stop the document.
-        }
-    }
-
+    // The photograph sits to the right of the first block, always.
     const startY = y;
-    y = sectionHeading(doc, 'Personal', y);
+    const panelHeight = drawPhotoPanel(doc, MARGIN + CONTENT_WIDTH - PHOTO_SIZE, y, photo);
+    const textWidth = CONTENT_WIDTH - PHOTO_SIZE - PHOTO_GAP;
+
+    // Two columns in the narrowed width rather than one. A single column of
+    // four short values would run deeper than the frame beside it and push the
+    // signatures onto a second sheet, which is a page of paper per member for
+    // nothing.
+    y = sectionHeading(doc, 'Personal', y, textWidth);
     y = fieldGrid(doc, [
         ['Full name', value(member.full_name)],
         ['Year of birth', value(member.year_of_birth)],
         ['ID or passport number', value(member.id_or_passport_no)],
         ['Mobile number', value(member.mobile_no)],
-    ], y, textWidth === CONTENT_WIDTH ? 2 : 1, 5);
+    ], y, 2, 5, textWidth);
 
-    if (photo) y = Math.max(y, startY + photoHeight + 12);
+    y = Math.max(y, startY + panelHeight + 6);
 
     y = sectionHeading(doc, 'Membership', y + 2);
     y = fieldGrid(doc, [
